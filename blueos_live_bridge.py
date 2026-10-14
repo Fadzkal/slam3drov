@@ -36,22 +36,7 @@ def main():
     bar30_depth_pub = rospy.Publisher("/bar30/depth", Float64, queue_size=5)
     ping1d_range_pub = rospy.Publisher("/sonar/ping1d/range", Range, queue_size=5)
     ping1d_dist_pub = rospy.Publisher("/sonar/ping1d/distance", Float64, queue_size=5)
-    path_pub = rospy.Publisher("/robot_path", Path, queue_size=10)
     
-    current_path = Path()
-    current_path.header.frame_id = "odom"
-    
-    def odom_cb(msg):
-        p = PoseStamped()
-        p.header = msg.header
-        p.pose = msg.pose.pose
-        current_path.header.stamp = msg.header.stamp
-        current_path.poses.append(p)
-        if len(current_path.poses) > 5000:
-            current_path.poses.pop(0)
-        path_pub.publish(current_path)
-
-    rospy.Subscriber("/rtabmap/odom", Odometry, odom_cb, queue_size=10)
     br = tf2_ros.TransformBroadcaster()
 
     base_url_comp1 = f"http://{blueos_ip}/mavlink2rest/mavlink/vehicles/1/components/1/messages"

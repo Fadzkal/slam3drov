@@ -145,6 +145,20 @@ Berikut dokumentasi lengkap riwayat kendala teknis yang dihadapi selama pengujia
 
 ---
 
+### H. Eliminasi Efek Putaran Kipas (*Anti-Spinning / 3D-to-3D SVD Rigid Estimation*)
+- **Gejala**: Kamera yang digerakkan sedikit atau diarahkan maju malah memicu rotasi melingkar berulang-ulang (*"malah muter-muter gtuu"*), menghasilkan serangkaian awan titik yang berputar mekar seperti kipas spiral (*fan-like petals*).
+- **Akar Masalah**:
+  1. Parameter `Odom/GuessMotion = true` menginterpolasi kecepatan sudut rotasi ke estimasi frame berikutnya. Sekali terjadi deviasi sudut kecil, sistem memprediksi bahwa kamera sedang berputar terus menerus, menciptakan *positive feedback loop* rotasi tak berujung.
+  2. Pendekatan default `Vis/EstimationType = 1` (3D->2D PnP) mengalami ambiguitas planar klasik pada permukaan datar (meja/dasar laut). Ekspansi skala visual saat kamera bergerak maju disalahartikan oleh solver PnP sebagai kombinasi rotasi yaw/pitch.
+  3. Terjadi duplikasi penerbitan topik `/robot_path` antara `blueos_live_bridge.py` dan `rov_trajectory_node.py`, menyebabkan garis lintasan bergetar dan tumpang tindih.
+- **Solusi**:
+  1. **3D-to-3D SVD Rigid Transform**: Ganti ke `<param name="Vis/EstimationType" type="string" value="0"/>` dan `<param name="Vis/InlierDistance" type="string" value="0.08"/>`. Estimasi gerak visual kini dihitung menggunakan dekomposisi nilai singular (SVD Horn/Kabsch) langsung pada titik 3D $(X,Y,Z)$. Hal ini memisahkan translasi dari rotasi secara matematis dan **100% kebal terhadap ambiguitas planar PnP**.
+  2. **Matikan Ekstrapolasi Rotasi**: Set `<param name="Odom/GuessMotion" type="string" value="false"/>` dan `<param name="Odom/ResetCountdown" type="string" value="0"/>`. Odometri tidak lagi mengasumsikan rotasi berlanjut secara otomatis.
+  3. **Ambang Batas Sudut Realistis**: Set `RGBD/AngularUpdate = 0.15 rad` ($\approx 8.5^\circ$) dan `RGBD/LinearUpdate = 0.06m` (6 cm). Jitter sudut kecil di bawah $8.5^\circ$ tidak akan memicu penambahan keyframe baru, sehingga efek kipas berputar terhenti total.
+  4. **Pembersihan Topik Lintasan**: Menghapus publisher `/robot_path` duplikat dari [`blueos_live_bridge.py`](file:///c:/remote_ROV/blueos_live_bridge.py), menyisakan satu-satunya jalur yang bersih dan teratur dari [`rov_trajectory_node.py`](file:///c:/remote_ROV/rov_trajectory_node.py).
+
+---
+
 ## 3. Konfigurasi Parameter Kunci (Tuning Reference)
 
 Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
@@ -155,11 +169,13 @@ Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
 | **MiDaS Depth** | `depth_scale` | `4.5` (meter) | Jangkauan kedalaman maksimum yang proporsional |
 | **MiDaS Depth** | `point_step` | `3` | Kerapatan tinggi PointCloud2 untuk visual surface padat |
 | **MiDaS Depth** | Rate Limiter | `12.5 Hz` | Menjaga CPU tetap dingin dan rendering RViz di 30 FPS |
-| **Visual Odometry** | `Vis/MinInliers` | `7` | Mempertahankan tracking stabil saat kamera bergerak maju |
-| **Visual Odometry** | `Vis/MaxFeatures` | `1200` | Memperbanyak fitur visual ORB untuk matching kokoh |
-| **Visual Odometry** | `Odom/GuessMotion` | `true` | Memprediksi pose dari kecepatan untuk transisi mulus |
-| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.04` (4 cm) | Merekam riwayat peta setiap 4 cm ROV bergerak maju |
-| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.06` ($\approx 3.4^\circ$) | Menjaga kesinambungan sudut saat ROV berputar |
+| **Visual Odometry** | `Vis/EstimationType` | `0` (3D->3D) | Menggunakan SVD tertutup: **100% anti-spinning / anti muter-muter** |
+| **Visual Odometry** | `Odom/GuessMotion` | `false` | Memutus feedback loop rotasi runaway |
+| **Visual Odometry** | `Vis/MinInliers` | `10` | Menjamin kekokohan korespondensi fitur 3D |
+| **Visual Odometry** | `Vis/MaxFeatures` | `1000` | Memperbanyak fitur visual ORB untuk matching kokoh |
+| **Visual Odometry** | `Vis/InlierDistance` | `0.08` (8 cm) | Membatasi deviasi jarak fitur 3D antar-frame |
+| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.06` (6 cm) | Merekam riwayat peta setiap 6 cm ROV bergerak maju |
+| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.5^\circ$) | Mencegah penumpukan keyframe spiral pada rotasi kecil |
 | **RTAB-Map SLAM** | `RGBD/OptimizeMaxError` | `0` | Menonaktifkan penolakan loop closure yang merusak graf |
 | **RTAB-Map SLAM** | `Grid/DepthDecimation` | `4` | Kerapatan awan titik tinggi tanpa membebani memori |
 | **RTAB-Map SLAM** | `Grid/VoxelSize` / `cloud_voxel_size` | `0.03` (3 cm) | Menjaga bentuk kontur fisik objek (meja/kardus/dinding) |

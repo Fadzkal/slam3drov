@@ -184,17 +184,24 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info" />
       <remap from="odom"                        to="/rtabmap/odom" />
 
-      <!-- Algoritma Odometry di Bawah Air: Frame-to-Map + ORB features -->
+      <!-- Algoritma Odometry di Bawah Air: Frame-to-Map + 3D->3D SVD Estimation -->
       <param name="Odom/Strategy"               type="string" value="0" /> <!-- 0 = Frame-to-Map (sangat stabil) -->
       <param name="Odom/Holonomic"              type="string" value="true" /> <!-- 6-DoF bebas bergerak underwater -->
-      <param name="Odom/GuessMotion"            type="string" value="true" />
-      <param name="Odom/ResetCountdown"         type="string" value="5" />
-      <param name="Odom/KeyFrameThr"            type="string" value="0.3" />
+      <param name="Odom/GuessMotion"            type="string" value="false" />
+      <param name="Odom/ResetCountdown"         type="string" value="0" />
+      <param name="Odom/KeyFrameThr"            type="string" value="0.4" />
+      
+      <!-- KUNCI ANTI MUTER-MUTER: Vis/EstimationType = 0 (3D->3D SVD) -->
+      <param name="Vis/EstimationType"          type="string" value="0" />
+      <param name="Vis/InlierDistance"          type="string" value="0.08" />
+      <param name="Vis/RefineIterations"        type="string" value="5" />
+
       <param name="Vis/FeatureType"             type="string" value="8" /> <!-- 8 = ORB features -->
-      <param name="Vis/MaxFeatures"             type="string" value="1200" />
-      <param name="Vis/MinInliers"              type="string" value="7" />
+      <param name="Vis/MaxFeatures"             type="string" value="1000" />
+      <param name="Vis/MinInliers"              type="string" value="10" />
       <param name="Vis/CorType"                 type="string" value="0" />
-      <param name="Vis/EpipolarGeometryVar"     type="string" value="0.04" />
+      <param name="Vis/MaxDepth"                type="string" value="4.0" />
+      <param name="Vis/MinDepth"                type="string" value="0.25" />
     </node>
 
     <!-- RTAB-Map SLAM Node -->
@@ -227,16 +234,15 @@
       <remap from="odom"              to="/odometry/filtered" />
 
       <!-- [Visual Feature Tuning for Underwater] -->
-      <!-- ORB features: faster than SIFT, handles motion blur better -->
       <param name="Kp/DetectorStrategy"    type="string" value="8" />
       <param name="Kp/MaxFeatures"         type="string" value="800" />
-      <param name="Vis/MinInliers"         type="string" value="7" />
+      <param name="Vis/MinInliers"         type="string" value="10" />
       <param name="Vis/FeatureType"        type="string" value="8" />
       <param name="Vis/CorType"            type="string" value="0" />
       <param name="Vis/MaxFeatures"        type="string" value="800" />
 
-      <!-- [SLAM Detection Rate: 1.5 Hz untuk responsif] -->
-      <param name="Rtabmap/DetectionRate"  type="string" value="1.5" />
+      <!-- [SLAM Detection Rate: 1.0 Hz] -->
+      <param name="Rtabmap/DetectionRate"  type="string" value="1.0" />
       <param name="Rtabmap/TimeThr"        type="string" value="700" />
 
       <!-- [3D Grid / Voxelization] -->
@@ -249,8 +255,8 @@
 
       <!-- [RGBD Options - Akumulasi Riwayat Map Saat Maju] -->
       <param name="RGBD/Enabled"           type="string" value="true" />
-      <param name="RGBD/LinearUpdate"      type="string" value="0.04" />
-      <param name="RGBD/AngularUpdate"     type="string" value="0.06" />
+      <param name="RGBD/LinearUpdate"      type="string" value="0.06" />
+      <param name="RGBD/AngularUpdate"     type="string" value="0.15" />
       <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
       <param name="RGBD/CreateOccupancyGrid"  type="string" value="false" />
 
