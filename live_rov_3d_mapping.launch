@@ -75,23 +75,27 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
       <remap from="odom"                        to="/rtabmap/odom"/>
 
-      <!-- Visual Odometry: Robust Frame-to-Map with EPnP & Auto-Recovery -->
+      <!-- Visual Odometry: Robust Frame-to-Map with EPnP & Outlier Rejection -->
       <param name="Odom/Strategy"               type="string" value="0"/>
       <param name="Odom/Holonomic"              type="string" value="true"/>
       <param name="Odom/FilteringStrategy"      type="string" value="0"/>
 
+      <!-- Batas Maksimum Kecepatan: MENCEGAH PETA MELAYANG / MELOMPAT (Outlier Rejection) -->
+      <param name="Odom/MaxTranslation"         type="string" value="0.30"/> <!-- Maks 30 cm per frame, tolak lompatan liar -->
+      <param name="Odom/MaxRotation"            type="string" value="0.50"/> <!-- Maks ~28 derajat per frame -->
+
       <!-- Matikan GuessMotion agar tidak ada feedback loop rotasi runaway (muter-muter) -->
       <param name="Odom/GuessMotion"            type="string" value="false"/>
-      <!-- ResetCountdown = 1: jika hilang sesaat, langsung pulih di frame berikutnya tanpa freeze -->
-      <param name="Odom/ResetCountdown"         type="string" value="1"/>
+      <!-- ResetCountdown = 0: Jangan auto-reset ke titik acak saat tracking drop sesaat, tunggu recovery -->
+      <param name="Odom/ResetCountdown"         type="string" value="0"/>
       <param name="Odom/KeyFrameThr"            type="string" value="0.3"/>
 
       <!-- EPnP Motion Estimation (Closed-form, toleran skala monocular MiDaS, bebas guess) -->
       <param name="Vis/EstimationType"          type="string" value="1"/>
       <param name="Vis/PnPFlags"                type="string" value="1"/> <!-- 1 = SOLVEPNP_EPNP -->
-      <param name="Vis/PnPReprojError"          type="string" value="8.0"/>
-      <param name="Vis/MinInliers"              type="string" value="5"/>
-      <!-- Matikan bundle adjustment gate agar tidak gagal pada inliers 5-7 -->
+      <param name="Vis/PnPReprojError"          type="string" value="4.0"/> <!-- Reprojection error lebih ketat -->
+      <param name="Vis/MinInliers"              type="string" value="10"/> <!-- Minimal 10 inlier terverifikasi -->
+      <!-- Matikan bundle adjustment gate agar tidak gagal pada inliers tipis -->
       <param name="OdomF2M/BundleAdjustment"    type="string" value="0"/>
       <param name="Vis/BundleAdjustment"        type="string" value="0"/>
 
@@ -129,11 +133,11 @@
       <param name="Kp/MaxFeatures"              type="string" value="800"/>
       <param name="Vis/FeatureType"             type="string" value="8"/>
       <param name="Vis/MaxFeatures"             type="string" value="800"/>
-      <param name="Vis/MinInliers"              type="string" value="5"/>
+      <param name="Vis/MinInliers"              type="string" value="10"/>
       <param name="Vis/BundleAdjustment"        type="string" value="0"/>
 
-      <!-- SLAM Rate -->
-      <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
+      <!-- SLAM Rate & Synchronization -->
+      <param name="Rtabmap/DetectionRate"       type="string" value="1.5"/>
       <param name="Rtabmap/TimeThr"             type="string" value="700"/>
 
       <!-- 3D Dense Grid / Voxelization -->
@@ -146,15 +150,15 @@
       <param name="Grid/VoxelSize"              type="double" value="0.03"/>
       <param name="cloud_voxel_size"            type="double" value="0.03"/>
 
-      <!-- KEYFRAME THRESHOLD: Rekam riwayat peta setiap 5cm atau 5 derajat -->
-      <param name="RGBD/LinearUpdate"           type="string" value="0.05"/>
-      <param name="RGBD/AngularUpdate"          type="string" value="0.08"/>
+      <!-- KEYFRAME THRESHOLD: Simpan riwayat keyframe setiap 12cm atau 10 derajat (mencegah desync) -->
+      <param name="RGBD/LinearUpdate"           type="string" value="0.12"/>
+      <param name="RGBD/AngularUpdate"          type="string" value="0.18"/>
       <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
 
-      <!-- Loop Closure Stability -->
-      <param name="RGBD/OptimizeMaxError"       type="string" value="0"/>
-      <param name="Rtabmap/LoopThr"             type="string" value="0.11"/>
-      <param name="Mem/RehearsalSimilarity"     type="string" value="0.45"/>
+      <!-- Loop Closure Stability: Filter False Positive agar graf tidak tertarik melintir -->
+      <param name="RGBD/OptimizeMaxError"       type="string" value="1.5"/>
+      <param name="Rtabmap/LoopThr"             type="string" value="0.16"/>
+      <param name="Mem/RehearsalSimilarity"     type="string" value="0.50"/>
 
       <!-- 2D / 2.5D Ground Occupancy Grid Mapping (seperti Gambar 2) -->
       <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
