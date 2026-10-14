@@ -173,6 +173,22 @@ Berikut dokumentasi lengkap riwayat kendala teknis yang dihadapi selama pengujia
 
 ---
 
+### J. Rekonstruksi Bidang Lantai 2.5D & Lintasan Kuning (*EgoExo++ 2.5D Ground Surface Floor*)
+- **Deskripsi & Inspirasi**: Mengacu pada gambar referensi teleoperasi *EgoExo++: Integrating On-demand Exocentric Visuals with 2.5D Ground Surface Estimation for Interactive Teleoperation of Underwater ROVs* (arXiv:2407.00848 Fig. 2, 3, 4).
+- **Fitur Baru yang Diimplementasikan**:
+  1. **EgoExo++ 2.5D Ground Surface Node ([`egoexo_ground_surface_node.py`](file:///c:/remote_ROV/egoexo_ground_surface_node.py))**:
+     - Mengestimasi elevasi bidang dasar ($Z_{\text{ground}}$) secara otomatis dari jejak lintasan dan awan titik.
+     - Membangun dan memperluas bidang lantai (*ground surface floor mesh*) berwarna toska lembut (*EgoExo Soft Teal* `#5B8C9B`, transparansi alpha `0.85`) yang menopang seluruh area ruangan dan dinding 3D.
+     - Menambahkan garis perimeter gelap (*crisp dark border* `#3D6674`) di sekeliling lantai dasar.
+  2. **Lintasan Kuning Terang (*Vibrant Yellow Trajectory*)**:
+     - Garis lintasan diubah menjadi kuning cerah (*Vibrant Yellow* `#FFE600`, RGB `255, 230, 0`) dengan ketebalan 3.5 cm.
+     - Diterbitkan marker lintasan putus-putus (*dashed line*) di atas bidang lantai dasar (`/egoexo/dashed_path`), persis seperti pada Gambar 2, 3, dan 4.
+  3. **Occupancy Grid Floor Mapping**:
+     - Diaktifkan `<param name="RGBD/CreateOccupancyGrid" type="string" value="true"/>` serta segmentasi normal bidang dasar di RTAB-Map (`Grid/Sensor=0`, `Grid/NormalsSegmentation=true`, `Grid/MaxGroundAngle=45`).
+     - Diaktifkan display `Occupancy Floor Map` di RViz (`/rtabmap/grid_map`).
+
+---
+
 ## 3. Konfigurasi Parameter Kunci (Tuning Reference)
 
 Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
@@ -192,16 +208,22 @@ Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
 | **Visual Odometry** | `Odom/ResetCountdown`| `0` | Mencegah lonjakan / teleportasi koordinat secara tiba-tiba |
 | **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.08` (8 cm) | Merekam riwayat peta setiap 8 cm ROV bergerak maju |
 | **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.6^\circ$) | Mencegah penumpukan keyframe spiral pada rotasi kecil |
-| **RTAB-Map SLAM** | `RGBD/OptimizeMaxError` | `0` | Menonaktifkan penolakan loop closure yang merusak graf |
+| **RTAB-Map SLAM** | `RGBD/CreateOccupancyGrid` | `true` | **Gambar 2**: Membuat peta lantai dasar (2.5D occupancy floor) |
+| **RTAB-Map SLAM** | `Grid/NormalsSegmentation` | `true` | Memisahkan permukaan lantai dasar dari dinding vertikal |
 | **RTAB-Map SLAM** | `Grid/DepthDecimation` | `4` | Kerapatan awan titik tinggi tanpa membebani memori |
 | **RTAB-Map SLAM** | `Grid/VoxelSize` / `cloud_voxel_size` | `0.03` (3 cm) | Menjaga bentuk kontur fisik objek (meja/kardus/dinding) |
 | **RTAB-Map SLAM** | `Grid/RangeMin` / `RangeMax` | `0.25` / `5.0` | Memetakan objek dekat (25 cm) hingga latar belakang (5 m) |
 | **Telemetry Bridge**| `gyro_deadband` | `0.025 rad/s` | Memotong drift giroskop saat ROV diam |
 | **Telemetry Bridge**| `attitude_deadband` | `0.015 rad` | Mengunci orientasi dari getaran kipas/meja |
 | **Trajectory Tracker**| `min_step_m` | `0.04` (4 cm) | Deadband jalur hijau RViz agar tidak bergetar saat diam |
+| **EgoExo Ground Node**| `padding_m` | `0.6` (60 cm) | Margin perluasan bidang lantai toska di sekeliling lintasan |
+| **EgoExo Ground Node**| `floor_alpha` | `0.85` | Transparansi permukaan lantai toska EgoExo++ |
+| **RViz Display** | `Ground Surface Floor`| **Enabled** | **Gambar 2**: Bidang lantai dasar toska dinamis (`/egoexo/ground_surface`) |
+| **RViz Display** | `EgoExo Yellow Dashed Path`| **Enabled** | **Gambar 2**: Lintasan kuning putus-putus (`/egoexo/dashed_path`) |
+| **RViz Display** | `Robot Trajectory` | **Enabled (Kuning)**| Jalur kuning kontinu (`/robot_path`, RGB: 255; 230; 0) |
+| **RViz Display** | `Occupancy Floor Map`| **Enabled** | Peta lantai grid occupancy 2D/2.5D (`/rtabmap/grid_map`) |
 | **RViz Display** | `PointCloud2` | **Enabled** | Menampilkan live AI Depth 3D surface tepat di depan kamera |
-| **RViz Display** | `MapCloud` | **Enabled** | Peta akumulasi riwayat yang tertinggal di belakang ROV |
-| **RViz Display** | `Robot Trajectory` | **Enabled** | Menampilkan jejak lintasan hijau terang ROV (`/robot_path`) |
+| **RViz Display** | `MapCloud` | **Enabled** | Dinding dan objek 3D yang berdiri di atas bidang lantai |
 | **RViz Display** | `ROV 3D Body` | **Enabled** | Marker fisik kubus 3D BlueROV2 merah (`/rov/model_marker`) |
 | **RViz Display** | `TF` | **Disabled** | Bersih dari kabel/sumbu warna-warni yang membingungkan |
 | **RViz Display** | Background Color | `0; 0; 0` | Hitam pekat untuk kontras maksimal visualisasi 3D |

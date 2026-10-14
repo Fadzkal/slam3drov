@@ -154,8 +154,13 @@
       <param name="Rtabmap/LoopThr"             type="string" value="0.11"/>
       <param name="Mem/RehearsalSimilarity"     type="string" value="0.45"/>
 
-      <!-- CreateOccupancyGrid off to save CPU -->
-      <param name="RGBD/CreateOccupancyGrid"    type="string" value="false"/>
+      <!-- 2D / 2.5D Ground Occupancy Grid Mapping (seperti Gambar 2) -->
+      <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
+      <param name="Grid/Sensor"                 type="string" value="0"/>
+      <param name="Grid/NormalsSegmentation"    type="string" value="true"/>
+      <param name="Grid/MaxGroundAngle"         type="string" value="45"/>
+      <param name="Grid/MaxGroundHeight"        type="string" value="0.08"/>
+      <param name="Grid/MinGroundHeight"        type="string" value="-0.08"/>
 
       <!-- Optimizer -->
       <param name="Optimizer/Strategy"          type="string" value="1"/>
@@ -164,13 +169,19 @@
     </node>
   </group>
 
-  <!-- 6. ROV Trajectory Tracker (jalur hijau /robot_path & body marker merah di RViz) -->
+  <!-- 6. ROV Trajectory Tracker (jalur /robot_path & body marker merah di RViz) -->
   <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py" name="rov_trajectory_tracker" output="screen">
     <param name="max_path_length" value="10000" />
     <param name="min_step_m" value="0.04" />
   </node>
 
-  <!-- 7. RViz 3D Visualizer -->
+  <!-- 7. EgoExo++ 2.5D Ground Surface Estimator (bidang lantai dasar toska & lintasan kuning Gambar 2) -->
+  <node pkg="subsea_3d_mapping" type="egoexo_ground_surface_node.py" name="egoexo_ground_surface" output="screen">
+    <param name="padding_m" value="0.6" />
+    <param name="floor_alpha" value="0.85" />
+  </node>
+
+  <!-- 8. RViz 3D Visualizer -->
   <node pkg="rviz" type="rviz" name="rviz" 
         args="-d $(find subsea_3d_mapping)/rviz/subsea_mapping.rviz" />
 

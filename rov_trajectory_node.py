@@ -112,9 +112,9 @@ class RovTrajectoryNode:
 
     def rtab_odom_callback(self, msg):
         if (rospy.Time.now() - self._last_ekf_time).to_sec() > 0.8:
-            # Check covariance: skip lost odometry and high-variance spikes
+            # Check covariance: skip lost odometry (9999) and crazy spikes
             cov = msg.pose.covariance[0] if len(msg.pose.covariance) > 0 else 0
-            if 0.0 < cov < 1.0:
+            if 0.0 <= cov < 5.0:
                 self._process_pose(msg.header.stamp, msg.header.frame_id, msg.pose.pose)
 
 

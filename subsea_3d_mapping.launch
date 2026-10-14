@@ -265,7 +265,14 @@
       <param name="RGBD/LinearUpdate"      type="string" value="0.08" />
       <param name="RGBD/AngularUpdate"     type="string" value="0.15" />
       <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
-      <param name="RGBD/CreateOccupancyGrid"  type="string" value="false" />
+      
+      <!-- 2D / 2.5D Ground Occupancy Grid Mapping (seperti Gambar 2) -->
+      <param name="RGBD/CreateOccupancyGrid" type="string" value="true" />
+      <param name="Grid/Sensor"              type="string" value="0" />
+      <param name="Grid/NormalsSegmentation" type="string" value="true" />
+      <param name="Grid/MaxGroundAngle"      type="string" value="45" />
+      <param name="Grid/MaxGroundHeight"     type="string" value="0.08" />
+      <param name="Grid/MinGroundHeight"     type="string" value="-0.08" />
 
       <!-- [Loop Closure Stability] -->
       <param name="RGBD/OptimizeMaxError"   type="string" value="0" />
@@ -282,12 +289,20 @@
   ====================================================================== -->
   <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py"
         name="rov_trajectory_tracker" output="screen">
-    <param name="max_path_length" value="8000" />
-    <param name="min_step_m"      value="0.015" />
+    <param name="max_path_length" value="10000" />
+    <param name="min_step_m"      value="0.04" />
   </node>
 
   <!-- ======================================================================
-       10. RViz Visualizer
+       10. EgoExo++ 2.5D Ground Surface Estimator (bidang lantai dasar toska & lintasan kuning Gambar 2)
+  ====================================================================== -->
+  <node pkg="subsea_3d_mapping" type="egoexo_ground_surface_node.py" name="egoexo_ground_surface" output="screen">
+    <param name="padding_m" value="0.6" />
+    <param name="floor_alpha" value="0.85" />
+  </node>
+
+  <!-- ======================================================================
+       11. RViz Visualizer
   ====================================================================== -->
   <node pkg="rviz" type="rviz" name="rviz" output="log"
         args="-d $(find subsea_3d_mapping)/rviz/subsea_mapping.rviz" />
