@@ -75,31 +75,31 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
       <remap from="odom"                        to="/rtabmap/odom"/>
 
-      <!-- Strategy: Frame-to-Map -->
+      <!-- Visual Odometry: Robust Frame-to-Map with EPnP & Auto-Recovery -->
       <param name="Odom/Strategy"               type="string" value="0"/>
       <param name="Odom/Holonomic"              type="string" value="true"/>
-      
-      <!-- KALMAN FILTER: Meredam getaran sensor sehingga diam tidak gerak-gerak sendiri -->
-      <param name="Odom/FilteringStrategy"      type="string" value="1"/>
-      <param name="Odom/KalmanMeasurementNoise" type="string" value="0.03"/>
-      <param name="Odom/KalmanProcessNoise"     type="string" value="0.002"/>
+      <param name="Odom/FilteringStrategy"      type="string" value="0"/>
 
       <!-- Matikan GuessMotion agar tidak ada feedback loop rotasi runaway (muter-muter) -->
       <param name="Odom/GuessMotion"            type="string" value="false"/>
-      <param name="Odom/ResetCountdown"         type="string" value="0"/>
-      <param name="Odom/KeyFrameThr"            type="string" value="0.4"/>
+      <!-- ResetCountdown = 1: jika hilang sesaat, langsung pulih di frame berikutnya tanpa freeze -->
+      <param name="Odom/ResetCountdown"         type="string" value="1"/>
+      <param name="Odom/KeyFrameThr"            type="string" value="0.3"/>
 
-      <!-- PnP Motion Estimation (Stabil, toleran variasi monocular MiDaS) -->
+      <!-- EPnP Motion Estimation (Closed-form, toleran skala monocular MiDaS, bebas guess) -->
       <param name="Vis/EstimationType"          type="string" value="1"/>
-      <param name="Vis/PnPReprojError"          type="string" value="4.0"/>
-      <param name="Vis/PnPFlags"                type="string" value="0"/>
+      <param name="Vis/PnPFlags"                type="string" value="1"/> <!-- 1 = SOLVEPNP_EPNP -->
+      <param name="Vis/PnPReprojError"          type="string" value="8.0"/>
+      <param name="Vis/MinInliers"              type="string" value="5"/>
+      <!-- Matikan bundle adjustment gate agar tidak gagal pada inliers 5-7 -->
+      <param name="OdomF2M/BundleAdjustment"    type="string" value="0"/>
+      <param name="Vis/BundleAdjustment"        type="string" value="0"/>
 
       <!-- ORB Features -->
       <param name="Vis/FeatureType"             type="string" value="8"/>
-      <param name="Vis/MaxFeatures"             type="string" value="1000"/>
-      <param name="Vis/MinInliers"              type="string" value="6"/>
+      <param name="Vis/MaxFeatures"             type="string" value="1200"/>
       <param name="Vis/CorType"                 type="string" value="0"/>
-      <param name="Vis/MaxDepth"                type="string" value="4.0"/>
+      <param name="Vis/MaxDepth"                type="string" value="4.5"/>
       <param name="Vis/MinDepth"                type="string" value="0.25"/>
     </node>
 
@@ -129,7 +129,8 @@
       <param name="Kp/MaxFeatures"              type="string" value="800"/>
       <param name="Vis/FeatureType"             type="string" value="8"/>
       <param name="Vis/MaxFeatures"             type="string" value="800"/>
-      <param name="Vis/MinInliers"              type="string" value="6"/>
+      <param name="Vis/MinInliers"              type="string" value="5"/>
+      <param name="Vis/BundleAdjustment"        type="string" value="0"/>
 
       <!-- SLAM Rate -->
       <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
@@ -137,6 +138,7 @@
 
       <!-- 3D Dense Grid / Voxelization -->
       <param name="Grid/FromDepth"              type="string" value="true"/>
+      <param name="Grid/Sensor"                 type="string" value="1"/> <!-- 1 = Depth image (RGB-D) -->
       <param name="Grid/RangeMax"               type="string" value="5.0"/>
       <param name="Grid/RangeMin"               type="string" value="0.25"/>
       <param name="Grid/DepthDecimation"        type="int"    value="4"/>
@@ -144,9 +146,9 @@
       <param name="Grid/VoxelSize"              type="double" value="0.03"/>
       <param name="cloud_voxel_size"            type="double" value="0.03"/>
 
-      <!-- KEYFRAME THRESHOLD: Deadband 8cm dan 8.5 derajat untuk abaikan getaran diam -->
-      <param name="RGBD/LinearUpdate"           type="string" value="0.08"/>
-      <param name="RGBD/AngularUpdate"          type="string" value="0.15"/>
+      <!-- KEYFRAME THRESHOLD: Rekam riwayat peta setiap 5cm atau 5 derajat -->
+      <param name="RGBD/LinearUpdate"           type="string" value="0.05"/>
+      <param name="RGBD/AngularUpdate"          type="string" value="0.08"/>
       <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
 
       <!-- Loop Closure Stability -->
@@ -156,7 +158,6 @@
 
       <!-- 2D / 2.5D Ground Occupancy Grid Mapping (seperti Gambar 2) -->
       <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
-      <param name="Grid/Sensor"                 type="string" value="0"/>
       <param name="Grid/NormalsSegmentation"    type="string" value="true"/>
       <param name="Grid/MaxGroundAngle"         type="string" value="45"/>
       <param name="Grid/MaxGroundHeight"        type="string" value="0.08"/>

@@ -46,10 +46,24 @@ class EgoExoGroundSurfaceNode:
 
     def odom_callback(self, msg):
         pos = msg.pose.pose.position
+        # Filter anomalous poses
+        if math.isnan(pos.x) or math.isnan(pos.y) or math.isnan(pos.z):
+            return
+        
+        # Deadband update: append if moved > 3cm
         if not self.positions:
             self.positions.append((pos.x, pos.y, pos.z))
             self.z_ground = pos.z - 0.12
             self.frame_id = msg.header.frame_id if msg.header.frame_id else "map"
+        else:
+            last = self.positions[-1]
+            d = math.hypot(pos.x - last[0], pos.y - last[1])
+            if d > 0.03:
+                self.positions.append((pos.x, pos.y, pos.z))
+                if len(self.positions) > 5000:
+                    self.positions.pop(0)
+                all_z = [p[2] for p in self.positions]
+                self.z_ground = min(all_z) - 0.12
 
     def path_callback(self, msg):
         if not msg.poses:
