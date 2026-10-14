@@ -2,10 +2,10 @@
 """
 rov_trajectory_node.py
 ======================
-Monitors filtered ROV odometry (/odometry/filtered) and Ping1D distance.
+Monitors filtered ROV odometry (/odometry/filtered or /rtabmap/odom).
 Publishes:
-  - /robot_path              (nav_msgs/Path) -> live 3D trail in RViz
-  - /rov/model_marker        (visualization_msgs/Marker) -> 3D body orientation marker in RViz
+  - /robot_path              (nav_msgs/Path) -> live 3D trail in RViz (like EgoExo++)
+  - /rov/model_marker        (visualization_msgs/Marker) -> 3D ROV body marker in RViz
   - /rov/distance_travelled  (std_msgs/Float64) -> total distance traveled in meters
 """
 
@@ -21,8 +21,8 @@ class RovTrajectoryNode:
     def __init__(self):
         rospy.init_node("rov_trajectory_node", anonymous=False)
 
-        self.max_path_length = rospy.get_param("~max_path_length", 5000)
-        self.min_dist_threshold = rospy.get_param("~min_step_m", 0.02)  # 2cm movement threshold
+        self.max_path_length = rospy.get_param("~max_path_length", 10000)
+        self.min_dist_threshold = rospy.get_param("~min_step_m", 0.015)  # 1.5cm movement threshold
 
         self.path_pub = rospy.Publisher("/robot_path", Path, queue_size=5)
         self.marker_pub = rospy.Publisher("/rov/model_marker", Marker, queue_size=5)
@@ -33,12 +33,14 @@ class RovTrajectoryNode:
 
         self.last_pos = None
         self.total_distance = 0.0
+        self._last_ekf_time = rospy.Time(0)
 
+        # Primary subscriber: fused EKF odometry
         rospy.Subscriber("/odometry/filtered", Odometry, self.odom_callback, queue_size=10)
-        # Fallback if EKF not active
+        # Fallback subscriber: visual odometry directly from RTAB-Map
         rospy.Subscriber("/rtabmap/odom", Odometry, self.rtab_odom_callback, queue_size=10)
 
-        rospy.loginfo("[RovTrajectoryNode] Tracking ROV trajectory and publishing to /robot_path")
+        rospy.loginfo("[RovTrajectoryNode] Tracking ROV trajectory and publishing to /robot_path & /rov/model_marker")
 
     def _process_pose(self, stamp, frame_id, pose):
         curr_x = pose.position.x
@@ -52,6 +54,8 @@ class RovTrajectoryNode:
             dz = curr_z - self.last_pos[2]
             dist_step = math.sqrt(dx*dx + dy*dy + dz*dz)
             if dist_step < self.min_dist_threshold:
+                # Still update current orientation marker even if pos hasn't exceeded step
+                self._publish_marker(stamp, frame_id, pose)
                 return
             self.total_distance += dist_step
         else:
@@ -74,34 +78,41 @@ class RovTrajectoryNode:
 
         self.path_pub.publish(self.path)
         self.dist_travelled_pub.publish(Float64(self.total_distance))
+        self._publish_marker(stamp, frame_id, pose)
 
-        # Publish 3D Arrow Marker representing ROV body orientation in RViz
+    def _publish_marker(self, stamp, frame_id, pose):
+        # 3D Model Marker representing BlueROV2 in RViz (like EgoExo++ Fig 4)
         marker = Marker()
         marker.header.stamp = stamp
         marker.header.frame_id = frame_id
         marker.ns = "bluerov2_body"
         marker.id = 0
-        marker.type = Marker.ARROW
+        marker.type = Marker.CUBE
         marker.action = Marker.ADD
         marker.pose = pose
-        marker.scale.x = 0.45  # Arrow length: 45cm (BlueROV2 length is 457mm)
-        marker.scale.y = 0.12  # Arrow width: 12cm
-        marker.scale.z = 0.08  # Arrow height: 8cm
-        # Ocean Cyan/Blue glow color
-        marker.color.r = 0.0
-        marker.color.g = 0.85
-        marker.color.b = 1.0
-        marker.color.a = 0.95
+        # BlueROV2 dimensions: 457mm L x 338mm W x 254mm H
+        marker.scale.x = 0.457
+        marker.scale.y = 0.338
+        marker.scale.z = 0.254
+        # Crimson Red color (like EgoExo++ ROV model) with alpha
+        marker.color.r = 0.95
+        marker.color.g = 0.15
+        marker.color.b = 0.15
+        marker.color.a = 0.85
         marker.lifetime = rospy.Duration(0)
         self.marker_pub.publish(marker)
 
     def odom_callback(self, msg):
+        self._last_ekf_time = rospy.Time.now()
         self._process_pose(msg.header.stamp, msg.header.frame_id, msg.pose.pose)
 
     def rtab_odom_callback(self, msg):
-        # Only use if /odometry/filtered is not receiving
-        if self.last_pos is None:
-            self._process_pose(msg.header.stamp, msg.header.frame_id, msg.pose.pose)
+        # Active fallback: if /odometry/filtered is not active, continuously use /rtabmap/odom
+        if (rospy.Time.now() - self._last_ekf_time).to_sec() > 0.8:
+            # Check covariance: skip crazy outlier frames
+            cov = msg.pose.covariance[0] if len(msg.pose.covariance) > 0 else 0
+            if cov < 50.0:
+                self._process_pose(msg.header.stamp, msg.header.frame_id, msg.pose.pose)
 
 
 if __name__ == "__main__":

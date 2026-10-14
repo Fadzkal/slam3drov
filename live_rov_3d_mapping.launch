@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <!--
-  live_rov_3d_mapping.launch — BlueROV2 Live 3D Mapping & AI Depth Pipeline
-  ===========================================================================
+  live_rov_3d_mapping.launch — BlueROV2 Live 3D Mapping & Continuous Map Accumulation
+  ===================================================================================
   1. AI Monocular Depth (MiDaS ONNX): publishes dense per-frame PointCloud2
-  2. RTAB-Map SLAM: dense MapCloud (decimation=4, voxel=0.03m), stable loop closure
-  3. ROV Trajectory Tracker: publishes /robot_path (bright green path in RViz)
-  4. BlueOS Telemetry & IMU Bridge
-  5. RViz: exact golden setup (PointCloud2 + MapCloud + Trajectory + Pitch Black BG)
+  2. RTAB-Map SLAM: continuous map history (LinearUpdate=0.04m, AngularUpdate=0.06rad)
+     Akumulasi peta 3D (MapCloud) tertinggal di belakang saat ROV maju
+  3. ROV Trajectory Tracker: publishes /robot_path (neon green) & /rov/model_marker (red 3D body)
+  4. Robust Visual Odometry: Vis/MinInliers=7, Vis/MaxFeatures=1200, Odom/GuessMotion=true
+  5. RViz: PointCloud2 + MapCloud (History) + Trajectory + ROV Body + Pitch Black BG
 -->
 <launch>
   <arg name="camera_url" default="http://192.168.2.1:8555/video" />
@@ -73,17 +74,19 @@
       <!-- Frame-to-Map odometry: paling stabil, cocok underwater -->
       <param name="Odom/Strategy"               type="string" value="0"/>
       <param name="Odom/Holonomic"              type="string" value="true"/>
-      <param name="Odom/ResetCountdown"         type="string" value="2"/>
-      <param name="Odom/KeyFrameThr"            type="string" value="0.4"/>
-      <!-- ORB features -->
+      <param name="Odom/GuessMotion"            type="string" value="true"/>
+      <param name="Odom/ResetCountdown"         type="string" value="5"/>
+      <param name="Odom/KeyFrameThr"            type="string" value="0.3"/>
+      <!-- ORB features: 1200 fitur agar tracking tetap kokoh saat bergerak -->
       <param name="Vis/FeatureType"             type="string" value="8"/>
-      <param name="Vis/MaxFeatures"             type="string" value="800"/>
-      <param name="Vis/MinInliers"              type="string" value="12"/>
+      <param name="Vis/MaxFeatures"             type="string" value="1200"/>
+      <!-- MinInliers = 7 agar registrasi tidak gagal saat inliers 7-11 -->
+      <param name="Vis/MinInliers"              type="string" value="7"/>
       <param name="Vis/CorType"                 type="string" value="0"/>
-      <param name="Vis/EpipolarGeometryVar"     type="string" value="0.02"/>
+      <param name="Vis/EpipolarGeometryVar"     type="string" value="0.04"/>
     </node>
 
-    <!-- RTAB-Map SLAM Node: accumulates dense 3D map -->
+    <!-- RTAB-Map SLAM Node: accumulates dense 3D map history -->
     <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="--delete_db_on_start">
       <param name="frame_id"                    type="string" value="base_link"/>
       <param name="odom_frame_id"               type="string" value="odom"/>
@@ -106,13 +109,14 @@
       <!-- ===== Visual Feature Detection ===== -->
       <param name="RGBD/Enabled"                type="string" value="true"/>
       <param name="Kp/DetectorStrategy"         type="string" value="8"/>
-      <param name="Kp/MaxFeatures"              type="string" value="600"/>
+      <param name="Kp/MaxFeatures"              type="string" value="800"/>
       <param name="Vis/FeatureType"             type="string" value="8"/>
-      <param name="Vis/MaxFeatures"             type="string" value="600"/>
-      <param name="Vis/MinInliers"              type="string" value="12"/>
+      <param name="Vis/MaxFeatures"             type="string" value="800"/>
+      <param name="Vis/MinInliers"              type="string" value="7"/>
 
       <!-- ===== SLAM Rate & Budget ===== -->
-      <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
+      <!-- 1.5 Hz agar penambahan map saat ROV maju responsif -->
+      <param name="Rtabmap/DetectionRate"       type="string" value="1.5"/>
       <param name="Rtabmap/TimeThr"             type="string" value="700"/>
 
       <!-- ===== 3D Dense Grid / Voxelization (PADAT & MEMBENTUK STRUKTUR) ===== -->
@@ -124,9 +128,11 @@
       <param name="Grid/VoxelSize"              type="double" value="0.03"/>
       <param name="cloud_voxel_size"            type="double" value="0.03"/>
 
-      <!-- ===== KEYFRAME THRESHOLD ===== -->
-      <param name="RGBD/LinearUpdate"           type="string" value="0.10"/>
-      <param name="RGBD/AngularUpdate"          type="string" value="0.15"/>
+      <!-- ===== KEYFRAME THRESHOLD (KUNCI MEMBUAT RIWAYAT MAP SAAT MAJU) ===== -->
+      <!-- Setiap kali ROV bergerak maju 4cm atau rotasi 3.4 derajat,
+           RTAB-Map OTOMATIS menambahkan keyframe baru ke dalam peta riwayat (WM)! -->
+      <param name="RGBD/LinearUpdate"           type="string" value="0.04"/>
+      <param name="RGBD/AngularUpdate"          type="string" value="0.06"/>
       <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
 
       <!-- ===== LOOP CLOSURE (DISABLE REJECTION AGAR PETA TIDAK RUSAK) ===== -->
@@ -134,7 +140,7 @@
       <param name="Rtabmap/LoopThr"             type="string" value="0.11"/>
       <param name="Mem/RehearsalSimilarity"     type="string" value="0.45"/>
 
-      <!-- MATIKAN occupancy grid → tidak perlu, hemat CPU -->
+      <!-- MATIKAN occupancy grid → hemat CPU -->
       <param name="RGBD/CreateOccupancyGrid"    type="string" value="false"/>
 
       <!-- Optimizer -->
@@ -144,10 +150,10 @@
     </node>
   </group>
 
-  <!-- 6. ROV Trajectory Tracker (menampilkan jalur hijau /robot_path di RViz) -->
+  <!-- 6. ROV Trajectory Tracker (menampilkan jalur hijau /robot_path & body marker di RViz) -->
   <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py" name="rov_trajectory_tracker" output="screen">
-    <param name="max_path_length" value="5000" />
-    <param name="min_step_m" value="0.02" />
+    <param name="max_path_length" value="10000" />
+    <param name="min_step_m" value="0.015" />
   </node>
 
   <!-- 7. RViz 3D Visualizer -->

@@ -187,12 +187,14 @@
       <!-- Algoritma Odometry di Bawah Air: Frame-to-Map + ORB features -->
       <param name="Odom/Strategy"               type="string" value="0" /> <!-- 0 = Frame-to-Map (sangat stabil) -->
       <param name="Odom/Holonomic"              type="string" value="true" /> <!-- 6-DoF bebas bergerak underwater -->
-      <param name="Odom/ResetCountdown"         type="string" value="1" />
+      <param name="Odom/GuessMotion"            type="string" value="true" />
+      <param name="Odom/ResetCountdown"         type="string" value="5" />
       <param name="Odom/KeyFrameThr"            type="string" value="0.3" />
       <param name="Vis/FeatureType"             type="string" value="8" /> <!-- 8 = ORB features -->
-      <param name="Vis/MaxFeatures"             type="string" value="800" />
-      <param name="Vis/MinInliers"              type="string" value="12" />
+      <param name="Vis/MaxFeatures"             type="string" value="1200" />
+      <param name="Vis/MinInliers"              type="string" value="7" />
       <param name="Vis/CorType"                 type="string" value="0" />
+      <param name="Vis/EpipolarGeometryVar"     type="string" value="0.04" />
     </node>
 
     <!-- RTAB-Map SLAM Node -->
@@ -228,13 +230,13 @@
       <!-- ORB features: faster than SIFT, handles motion blur better -->
       <param name="Kp/DetectorStrategy"    type="string" value="8" />
       <param name="Kp/MaxFeatures"         type="string" value="800" />
-      <param name="Vis/MinInliers"         type="string" value="12" />
+      <param name="Vis/MinInliers"         type="string" value="7" />
       <param name="Vis/FeatureType"        type="string" value="8" />
       <param name="Vis/CorType"            type="string" value="0" />
-      <param name="Vis/MaxFeatures"        type="string" value="600" />
+      <param name="Vis/MaxFeatures"        type="string" value="800" />
 
-      <!-- [SLAM Detection Rate: 1.0 Hz untuk hemat CPU] -->
-      <param name="Rtabmap/DetectionRate"  type="string" value="1.0" />
+      <!-- [SLAM Detection Rate: 1.5 Hz untuk responsif] -->
+      <param name="Rtabmap/DetectionRate"  type="string" value="1.5" />
       <param name="Rtabmap/TimeThr"        type="string" value="700" />
 
       <!-- [3D Grid / Voxelization] -->
@@ -245,10 +247,10 @@
       <param name="Grid/VoxelSize"         type="double" value="0.03" />
       <param name="cloud_voxel_size"       type="double" value="0.03" />
 
-      <!-- [RGBD Options] -->
+      <!-- [RGBD Options - Akumulasi Riwayat Map Saat Maju] -->
       <param name="RGBD/Enabled"           type="string" value="true" />
-      <param name="RGBD/LinearUpdate"      type="string" value="0.10" />
-      <param name="RGBD/AngularUpdate"     type="string" value="0.15" />
+      <param name="RGBD/LinearUpdate"      type="string" value="0.04" />
+      <param name="RGBD/AngularUpdate"     type="string" value="0.06" />
       <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
       <param name="RGBD/CreateOccupancyGrid"  type="string" value="false" />
 

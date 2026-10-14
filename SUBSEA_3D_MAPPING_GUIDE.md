@@ -128,6 +128,23 @@ Berikut dokumentasi lengkap riwayat kendala teknis yang dihadapi selama pengujia
 
 ---
 
+### G. Akumulasi Peta Riwayat Saat ROV Maju (Continuous Map History & EgoExo++ Visuals)
+- **Gejala**: Ketika ROV bergerak maju, peta riwayat di belakangnya tidak terbentuk/tidak tersimpan (stuck di `WM=1` / Working Memory 1 node), dan di terminal muncul peringatan:
+  ```
+  [ WARN] OdometryF2M.cpp:computeTransform() Registration failed: "Too low inliers after bundle adjustment: 7<12"
+  [WARN] Odometry automatically reset to latest odometry pose available from TF (odom->base_link)!
+  ```
+- **Akar Masalah**:
+  1. Ambang batas `Vis/MinInliers = 12` terlalu tinggi untuk gerakan maju saat objek berada dekat atau mengalami perubahan perspektif. Frame dengan 7–9 inliers ditolak sebagai kegagalan registrasi, memicu reset odometri otomatis dan mengunci Working Memory RTAB-Map di node 1. Peta baru tidak pernah ditambahkan.
+  2. Pada [`rov_trajectory_node.py`](file:///c:/remote_ROV/rov_trajectory_node.py), ada *bug* logika `if self.last_pos is None:` pada subscriber visual odometry `/rtabmap/odom`, menyebabkan node hanya memproses titik pertama lalu berhenti melacak titik selanjutnya.
+  3. `RGBD/LinearUpdate = 0.10m` (10 cm) membuat RTAB-Map pasif jika ROV hanya digerakkan sedikit (< 10 cm).
+- **Solusi**:
+  1. **Toleransi Inlier Realistis**: Set `Vis/MinInliers = 7` dan perbanyak fitur `Vis/MaxFeatures = 1200` serta aktifkan `Odom/GuessMotion = true`. Gerakan kamera kini diestimasi secara kontinu tanpa interupsi atau reset.
+  2. **Ekspansi Kerapatan Riwayat Peta**: Set `RGBD/LinearUpdate = 0.04m` (4 cm) dan `RGBD/AngularUpdate = 0.06 rad` ($\approx 3.4^\circ$). Setiap kali ROV bergerak maju 4 cm, RTAB-Map **otomatis merekam keyframe baru** ke Working Memory ($WM=2, 3, 4, ...$) dan menempelkan patch 3D baru ke `MapCloud`.
+  3. **Fix Trajectory Tracker**: [`rov_trajectory_node.py`](file:///c:/remote_ROV/rov_trajectory_node.py) diperbaiki agar terus memperbarui garis lintasan `/robot_path` secara real-time dan memancarkan marker fisik 3D BlueROV2 berwarna merah (`/rov/model_marker`) persis seperti gambar pada publikasi EgoExo++ (arXiv:2407.00848 Fig. 4).
+
+---
+
 ## 3. Konfigurasi Parameter Kunci (Tuning Reference)
 
 Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
@@ -138,11 +155,21 @@ Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
 | **MiDaS Depth** | `depth_scale` | `4.5` (meter) | Jangkauan kedalaman maksimum yang proporsional |
 | **MiDaS Depth** | `point_step` | `3` | Kerapatan tinggi PointCloud2 untuk visual surface padat |
 | **MiDaS Depth** | Rate Limiter | `12.5 Hz` | Menjaga CPU tetap dingin dan rendering RViz di 30 FPS |
-| **Visual Odometry** | `Vis/MinInliers` | `12` | Mencegah lonjakan pose (*anti-jump*) pada bidang minim tekstur |
-| **Visual Odometry** | `Vis/MaxFeatures` | `800` | Memastikan kecocokan fitur ORB yang stabil dan akurat |
+| **Visual Odometry** | `Vis/MinInliers` | `7` | Mempertahankan tracking stabil saat kamera bergerak maju |
+| **Visual Odometry** | `Vis/MaxFeatures` | `1200` | Memperbanyak fitur visual ORB untuk matching kokoh |
+| **Visual Odometry** | `Odom/GuessMotion` | `true` | Memprediksi pose dari kecepatan untuk transisi mulus |
+| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.04` (4 cm) | Merekam riwayat peta setiap 4 cm ROV bergerak maju |
+| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.06` ($\approx 3.4^\circ$) | Menjaga kesinambungan sudut saat ROV berputar |
 | **RTAB-Map SLAM** | `RGBD/OptimizeMaxError` | `0` | Menonaktifkan penolakan loop closure yang merusak graf |
 | **RTAB-Map SLAM** | `Grid/DepthDecimation` | `4` | Kerapatan awan titik tinggi tanpa membebani memori |
 | **RTAB-Map SLAM** | `Grid/VoxelSize` / `cloud_voxel_size` | `0.03` (3 cm) | Menjaga bentuk kontur fisik objek (meja/kardus/dinding) |
+| **RTAB-Map SLAM** | `Grid/RangeMin` / `RangeMax` | `0.25` / `5.0` | Memetakan objek dekat (25 cm) hingga latar belakang (5 m) |
+| **RViz Display** | `PointCloud2` | **Enabled** | Menampilkan live AI Depth 3D surface tepat di depan kamera |
+| **RViz Display** | `MapCloud` | **Enabled** | Peta akumulasi riwayat yang tertinggal di belakang ROV |
+| **RViz Display** | `Robot Trajectory` | **Enabled** | Menampilkan jejak lintasan hijau terang ROV (`/robot_path`) |
+| **RViz Display** | `ROV 3D Body` | **Enabled** | Marker fisik kubus 3D BlueROV2 merah (`/rov/model_marker`) |
+| **RViz Display** | `TF (Show Arrows)` | **False** | Mencegah artefak panah kuning melesat ke tak hingga |
+| **RViz Display** | Background Color | `0; 0; 0` | Hitam pekat untuk kontras maksimal visualisasi 3D |
 | **RTAB-Map SLAM** | `Grid/RangeMin` / `RangeMax` | `0.25` / `5.0` | Memetakan objek dekat (25 cm) hingga latar belakang (5 m) |
 | **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.10` (10 cm) | Keyframe ditambahkan secara teratur saat ROV bergerak |
 | **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.6^\circ$) | Menjaga kesinambungan sudut saat ROV berputar |

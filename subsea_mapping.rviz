@@ -5,10 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /PointCloud21
         - /MapCloud1
         - /Robot Trajectory1
-        - /Info1
       Splitter Ratio: 0.48
     Tree Height: 700
   - Class: rviz/Views
@@ -48,7 +46,7 @@ Visualization Manager:
 
     # -----------------------------------------------------------------------
     # 2. PointCloud2 (Real-Time AI Dense Depth Cloud from MiDaS ONNX)
-    # Ini yang membentuk visual surface 3D mulus realtime seperti di video referensi
+    # Visual permukaan 3D real-time tepat di depan lensa kamera
     # -----------------------------------------------------------------------
     - Alpha: 1.0
       Autocompute Intensity Bounds: true
@@ -81,7 +79,6 @@ Visualization Manager:
 
     # -----------------------------------------------------------------------
     # 3. TF Frames (base_link, camera_link, odom, map)
-    # Arrow dimatikan agar tidak ada garis kuning panjang menusuk ke infinity
     # -----------------------------------------------------------------------
     - Class: rviz/TF
       Enabled: true
@@ -102,7 +99,7 @@ Visualization Manager:
           Value: true
         map:
           Value: true
-      Marker Scale: 0.5
+      Marker Scale: 0.4
       Name: TF
       Show Arrows: false
       Show Axes: true
@@ -127,8 +124,8 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # 5. RTAB-Map MapCloud (Akumulasi Peta 3D Padat & Tajam)
-    # Decimation 4 & Voxel 0.03m: padat membentuk objek tanpa lag
+    # 5. RTAB-Map MapCloud (PETA RIWAYAT 3D YANG TERTINGGAL DI BELAKANG ROV)
+    # Akumulasi seluruh frame masa lalu saat ROV bergerak maju (Ground Surface)
     # -----------------------------------------------------------------------
     - Alpha: 1.0
       Autocompute Intensity Bounds: true
@@ -157,7 +154,7 @@ Visualization Manager:
       Min Intensity: 0
       Name: MapCloud
       Node filtering angle (degrees): 20
-      Node filtering radius (m): 0.15
+      Node filtering radius (m): 0.04
       Position Transformer: XYZ
       Size (Pixels): 2
       Size (m): 0.015
@@ -196,7 +193,18 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # 7. Global 3D Map (Cloud Map penuh - default off agar hemat memori)
+    # 7. ROV 3D Body (Model Fisik BlueROV2 Merah seperti di EgoExo++)
+    # -----------------------------------------------------------------------
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /rov/model_marker
+      Name: ROV 3D Body
+      Queue Size: 10
+      Unreliable: false
+      Value: true
+
+    # -----------------------------------------------------------------------
+    # 8. Global 3D Map (Cloud Map penuh - default off agar hemat memori)
     # -----------------------------------------------------------------------
     - Alpha: 1.0
       Class: rviz/PointCloud2
@@ -214,7 +222,7 @@ Visualization Manager:
       Value: false
 
     # -----------------------------------------------------------------------
-    # 8. RTAB-Map Info (Monitor Loop Closure & Memory)
+    # 9. RTAB-Map Info (Monitor Loop Closure & Memory)
     # -----------------------------------------------------------------------
     - Class: rtabmap_rviz_plugins/Info
       Enabled: true
@@ -224,7 +232,7 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # 9. RTAB-Map Graph (Pose Graph & Loop Closure Connections)
+    # 10. RTAB-Map Graph (Pose Graph & Loop Closure Connections)
     # -----------------------------------------------------------------------
     - Alpha: 1.0
       Class: rtabmap_rviz_plugins/MapGraph
@@ -241,7 +249,7 @@ Visualization Manager:
       Virtual: 255; 0; 255
 
     # -----------------------------------------------------------------------
-    # 10. Map (Occupancy Grid - default off)
+    # 11. Map (Occupancy Grid - default off)
     # -----------------------------------------------------------------------
     - Alpha: 0.65
       Class: rviz/Map
