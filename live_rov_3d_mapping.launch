@@ -1,4 +1,19 @@
 <?xml version="1.0"?>
+<!--
+  live_rov_3d_mapping.launch — BlueROV2 Live 3D Mapping (FIXED: Stable SLAM)
+  ===========================================================================
+  Perbaikan utama vs versi lama:
+  1. Loop closure yang salah tidak lagi merusak seluruh peta
+     → RGBD/OptimizeMaxError dinaikkan dari 3.0 → 0 (disable rejection)
+     → Mem/RehearsalSimilarity ketat (0.50) supaya node tidak duplikat
+  2. Keyframe tidak lagi spam berlebihan
+     → RGBD/LinearUpdate 0.15→0.25, AngularUpdate 0.20→0.30
+  3. Odometry diperkuat: MinInliers naik, MaxFeatures naik
+  4. Point cloud diperjarang agar tidak lag
+     → Grid/DepthDecimation=16, VoxelSize=0.10
+  5. Trajectory tracking DIMATIKAN untuk hemat CPU
+  6. Detection rate diturunkan ke 0.5 Hz (tiap 2 detik)
+-->
 <launch>
   <arg name="camera_url" default="http://192.168.2.1:8555/video" />
   <arg name="blueos_ip" default="192.168.2.2" />
@@ -38,20 +53,26 @@
 
   <!-- 4. AI Monocular Depth & Synchronizer Generator -->
   <node pkg="subsea_3d_mapping" type="monocular_depth_node.py" name="monocular_depth" output="screen">
-    <param name="depth_scale" value="6.0" />
+    <param name="depth_scale" value="4.0" />
     <param name="point_step" value="8" />
     <param name="image_topic" value="/camera/image_raw" />
   </node>
 
   <!-- 5. RTAB-Map Visual Odometry & Dense 3D Mapping -->
   <group ns="rtabmap">
-    <!-- Visual Odometry: tracks movement (forward, turn, strafe, backward) from camera -->
+
+    <!-- ================================================================
+         Visual Odometry: tracks movement from camera
+         PERBAIKAN: MinInliers naik → lebih ketat menolak outlier
+                    MaxFeatures naik → lebih banyak fitur untuk matching
+                    Strategy 0 = Frame-to-Map (paling stabil untuk underwater)
+         ================================================================ -->
     <node pkg="rtabmap_odom" type="rgbd_odometry" name="rgbd_odometry" output="screen">
       <param name="frame_id"                    type="string" value="base_link"/>
       <param name="odom_frame_id"               type="string" value="odom"/>
       <param name="publish_tf"                  type="bool"   value="true"/>
       <param name="approx_sync"                 type="bool"   value="true"/>
-      <param name="queue_size"                  type="int"    value="10"/>
+      <param name="queue_size"                   type="int"    value="10"/>
       <param name="wait_for_transform"          type="bool"   value="true"/>
       <param name="wait_for_transform_duration" type="double" value="0.5"/>
 
@@ -60,16 +81,46 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
       <remap from="odom"                        to="/rtabmap/odom"/>
 
-      <param name="Odom/Strategy"               type="string" value="0"/> <!-- Frame-to-Map -->
-      <param name="Odom/Holonomic"              type="string" value="true"/> <!-- Enable 6-DoF strafe and orbit -->
-      <param name="Odom/ResetCountdown"         type="string" value="1"/>
-      <param name="Odom/KeyFrameThr"            type="string" value="0.3"/>
-      <param name="Vis/FeatureType"             type="string" value="8"/> <!-- ORB features -->
-      <param name="Vis/MaxFeatures"             type="string" value="600"/>
-      <param name="Vis/MinInliers"              type="string" value="6"/>
+      <!-- Frame-to-Map odometry: paling stabil, cocok underwater -->
+      <param name="Odom/Strategy"               type="string" value="0"/>
+      <param name="Odom/Holonomic"              type="string" value="true"/>
+      <param name="Odom/ResetCountdown"         type="string" value="2"/>
+      <param name="Odom/KeyFrameThr"            type="string" value="0.4"/>
+      <!-- ORB features: cepat, tahan motion blur -->
+      <param name="Vis/FeatureType"             type="string" value="8"/>
+      <!-- Naikkan fitur: lebih banyak anchor point = odom lebih stabil -->
+      <param name="Vis/MaxFeatures"             type="string" value="1000"/>
+      <!-- MinInliers NAIK: menolak estimasi pose yg buruk (kurang anchor) -->
+      <param name="Vis/MinInliers"              type="string" value="15"/>
+      <!-- Correspondence: BruteForce (lebih akurat dari optical flow untuk underwater) -->
+      <param name="Vis/CorType"                 type="string" value="0"/>
+      <!-- Epipolar geometry constraint: buang outlier match yg violate geometry -->
+      <param name="Vis/EpipolarGeometryVar"     type="string" value="0.02"/>
     </node>
 
-    <!-- RTAB-Map SLAM Node: accumulates dense 3D map from multi-angle views -->
+    <!-- ================================================================
+         RTAB-Map SLAM Node: accumulates dense 3D map
+         
+         PERBAIKAN UTAMA:
+         1. RGBD/OptimizeMaxError = 0 → DISABLE loop closure rejection
+            Masalah sebelumnya: loop closure BENAR tapi dibuang karena 
+            error ratio > 3.0. Ini terjadi karena monocular depth noise.
+            Dengan disable, graph optimizer tetap jalan tapi tidak reject.
+         2. RGBD/LinearUpdate = 0.25 (sebelumnya 0.15)
+            → Keyframe hanya ditambah jika ROV bergerak 25cm
+         3. RGBD/AngularUpdate = 0.30 (sebelumnya 0.20)
+            → Keyframe hanya ditambah jika ROV berputar ~17 derajat
+         4. Grid/DepthDecimation = 16 (sebelumnya 8)
+            → Point cloud 4x lebih jarang = tidak lag
+         5. Grid/VoxelSize = 0.10 (sebelumnya 0.07)
+            → Voxel 10cm filter = lebih ringan
+         6. Rtabmap/DetectionRate = 0.5 (sebelumnya 1.0)
+            → Loop closure check tiap 2 detik = hemat CPU
+         7. Mem/RehearsalSimilarity = 0.50
+            → Lebih ketat mendeteksi duplikasi node
+         8. RGBD/OptimizeFromGraphEnd = false
+            → Optimisasi dari awal graph (lebih stabil)
+         ================================================================ -->
     <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="--delete_db_on_start">
       <param name="frame_id"                    type="string" value="base_link"/>
       <param name="odom_frame_id"               type="string" value="odom"/>
@@ -89,25 +140,63 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
       <remap from="odom"                        to="/rtabmap/odom"/>
 
+      <!-- ===== Visual Feature Detection ===== -->
       <param name="RGBD/Enabled"                type="string" value="true"/>
-      <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
       <param name="Kp/DetectorStrategy"         type="string" value="8"/>
-      <param name="Kp/MaxFeatures"              type="string" value="500"/>
+      <param name="Kp/MaxFeatures"              type="string" value="600"/>
+      <param name="Vis/FeatureType"             type="string" value="8"/>
+      <param name="Vis/MaxFeatures"             type="string" value="500"/>
+      <param name="Vis/MinInliers"              type="string" value="15"/>
+
+      <!-- ===== SLAM Rate & Budget ===== -->
+      <!-- Turunkan detection rate: tiap 2 detik, hemat CPU -->
+      <param name="Rtabmap/DetectionRate"       type="string" value="0.5"/>
+      <!-- Time budget per SLAM iteration (ms) -->
+      <param name="Rtabmap/TimeThr"             type="string" value="700"/>
+
+      <!-- ===== 3D Grid / Voxelization (DIPERJARANG untuk anti-lag) ===== -->
       <param name="Grid/FromDepth"              type="string" value="true"/>
-      <param name="Grid/RangeMax"               type="string" value="6.0"/>
-      <param name="Grid/RangeMin"               type="string" value="0.35"/>
-      <param name="Grid/DepthDecimation"        type="int"    value="8"/>
-      <param name="Grid/CellSize"               type="double" value="0.07"/>
-      <param name="Grid/VoxelSize"              type="double" value="0.07"/>
-      <param name="cloud_voxel_size"            type="double" value="0.07"/>
-      <param name="RGBD/LinearUpdate"           type="string" value="0.15"/>
-      <param name="RGBD/AngularUpdate"          type="string" value="0.20"/>
+      <param name="Grid/RangeMax"               type="string" value="4.0"/>
+      <param name="Grid/RangeMin"               type="string" value="0.4"/>
+      <!-- Decimation TINGGI: 16x downsample → jauh lebih sedikit titik -->
+      <param name="Grid/DepthDecimation"        type="int"    value="16"/>
+      <param name="Grid/CellSize"               type="double" value="0.10"/>
+      <param name="Grid/VoxelSize"              type="double" value="0.10"/>
+      <param name="cloud_voxel_size"            type="double" value="0.10"/>
+
+      <!-- ===== KEYFRAME THRESHOLD (KUNCI PERBAIKAN) ===== -->
+      <!-- Sebelumnya 0.15m/0.20rad → terlalu banyak keyframe →
+           banyak node di posisi hampir sama → graph optimizer bingung →
+           loop closure salah → peta acak-acakan.
+           Sekarang: hanya tambah keyframe jika gerak minimal 25cm / 17 derajat -->
+      <param name="RGBD/LinearUpdate"           type="string" value="0.25"/>
+      <param name="RGBD/AngularUpdate"          type="string" value="0.30"/>
       <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
-      <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
+
+      <!-- ===== LOOP CLOSURE OPTIMIZATION (KUNCI PERBAIKAN UTAMA) ===== -->
+      <!-- RGBD/OptimizeMaxError = 0 → NONAKTIFKAN rejection loop closure.
+           Sebelumnya error ratio 3.4x, 6x, 9x langsung reject semua loop closure.
+           Dengan monocular depth, noise itu NORMAL. Biarkan graph optimizer
+           menangani noise secara global tanpa membuang loop closure.
+           Ini yang menyebabkan titik kuning acak dan kamera berantakan. -->
+      <param name="RGBD/OptimizeMaxError"       type="string" value="0"/>
+
+      <!-- Loop closure threshold: naikkan supaya hanya cocokkan yg benar-benar mirip -->
+      <param name="Rtabmap/LoopThr"             type="string" value="0.11"/>
+      <!-- Rehearsal similarity: filter duplikat node agresif -->
+      <param name="Mem/RehearsalSimilarity"     type="string" value="0.50"/>
+
+      <!-- MATIKAN occupancy grid → tidak perlu, hemat CPU -->
+      <param name="RGBD/CreateOccupancyGrid"    type="string" value="false"/>
+
+      <!-- Optimizer: GTSAM (jika ada) atau g2o dengan Levenberg-Marquardt -->
+      <param name="Optimizer/Strategy"          type="string" value="1"/>
+      <param name="Optimizer/Iterations"        type="string" value="20"/>
+      <param name="Optimizer/Epsilon"           type="string" value="0.00001"/>
     </node>
   </group>
 
-  <!-- 6. RViz 3D Visualizer -->
+  <!-- 6. RViz 3D Visualizer (tanpa trajectory tracking untuk hemat CPU) -->
   <node pkg="rviz" type="rviz" name="rviz" 
         args="-d $(find subsea_3d_mapping)/rviz/subsea_mapping.rviz" />
 

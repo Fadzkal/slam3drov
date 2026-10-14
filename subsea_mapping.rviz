@@ -6,9 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /RTAB-Map 3D Cloud1
-        - /Robot Trajectory1
-        - /Ping1D Range1
-        - /EKF Odometry1
       Splitter Ratio: 0.48
     Tree Height: 700
   - Class: rviz/Views
@@ -47,7 +44,7 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # TF Frames (camera, base_link, ping1d, bar30, odom, map)
+    # TF Frames (minimal: base_link + camera_link only)
     # -----------------------------------------------------------------------
     - Class: rviz/TF
       Enabled: true
@@ -61,16 +58,16 @@ Visualization Manager:
         camera_optical_link:
           Value: false
         ping1d_sonar_link:
-          Value: true
+          Value: false
         bar30_depth_link:
           Value: false
         odom:
-          Value: true
+          Value: false
         map:
-          Value: true
-      Marker Scale: 0.6
+          Value: false
+      Marker Scale: 0.5
       Name: TF Frames
-      Show Arrows: true
+      Show Arrows: false
       Show Axes: true
       Show Names: true
       Update Interval: 0
@@ -93,7 +90,8 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Dense 3D Point Cloud Map (MapCloud plugin – accumulates over time)
+    # RTAB-Map Dense 3D Point Cloud Map (MapCloud plugin)
+    # PERBAIKAN: cloud decimation NAIK, voxel BESAR → anti lag
     # -----------------------------------------------------------------------
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -104,10 +102,10 @@ Visualization Manager:
       Axis: Z
       Channel Name: rgb
       Class: rtabmap_rviz_plugins/MapCloud
-      Cloud decimation: 8
-      Cloud max depth (m): 6.0
-      Cloud min depth (m): 0.35
-      Cloud voxel size (m): 0.07
+      Cloud decimation: 16
+      Cloud max depth (m): 4.0
+      Cloud min depth (m): 0.4
+      Cloud voxel size (m): 0.10
       Color: 255; 255; 255
       Color Transformer: RGB8
       Download graph: true
@@ -121,8 +119,8 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: RTAB-Map 3D Cloud
-      Node filtering angle (degrees): 20
-      Node filtering radius (m): 0.25
+      Node filtering angle (degrees): 30
+      Node filtering radius (m): 0.30
       Position Transformer: XYZ
       Size (Pixels): 2
       Size (m): 0.02
@@ -134,7 +132,7 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Graph (pose graph, loop closures, keyframes)
+    # RTAB-Map Graph (pose graph, loop closures)
     # -----------------------------------------------------------------------
     - Alpha: 1
       Class: rtabmap_rviz_plugins/MapGraph
@@ -151,7 +149,7 @@ Visualization Manager:
       Virtual: 255; 0; 255
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Stats (memory, loop closure status, FPS)
+    # RTAB-Map Info (status monitor)
     # -----------------------------------------------------------------------
     - Class: rtabmap_rviz_plugins/Info
       Enabled: true
@@ -159,140 +157,6 @@ Visualization Manager:
       Topic: /rtabmap/info
       Unreliable: false
       Value: true
-
-    # -----------------------------------------------------------------------
-    # ROV 6-DoF Trajectory Path
-    # -----------------------------------------------------------------------
-    - Alpha: 1
-      Buffer Length: 10000
-      Class: rviz/Path
-      Color: 0; 255; 255
-      Enabled: true
-      Head Diameter: 0.15
-      Head Length: 0.1
-      Length: 0.1
-      Line Style: Lines
-      Line Width: 0.04
-      Name: Robot Trajectory
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Pose Color: 255; 85; 0
-      Pose Style: Arrows
-      Radius: 0.02
-      Shaft Diameter: 0.05
-      Shaft Length: 0.05
-      Topic: /robot_path
-      Unreliable: false
-      Value: true
-
-    # -----------------------------------------------------------------------
-    # ROV 3D Body Orientation Marker
-    # -----------------------------------------------------------------------
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /rov/model_marker
-      Name: ROV 3D Body
-      Queue Size: 10
-      Unreliable: false
-      Value: true
-
-    # -----------------------------------------------------------------------
-    # EKF Fused Odometry (position + orientation from robot_localization)
-    # -----------------------------------------------------------------------
-    - Class: rviz/Odometry
-      Angle Tolerance: 0.1
-      Covariance:
-        Orientation:
-          Alpha: 0.5
-          Color: 255; 255; 127
-          Color Style: Unique
-          Frame: Local
-          Offset: 1
-          Scale: 1
-          Value: true
-        Position:
-          Alpha: 0.3
-          Color: 204; 51; 204
-          Scale: 1
-          Value: true
-        Value: true
-      Enabled: true
-      Keep: 1
-      Name: EKF Odometry
-      Position Tolerance: 0.1
-      Shape:
-        Alpha: 1
-        Axes Length: 0.6
-        Axes Radius: 0.04
-        Color: 255; 25; 0
-        Head Length: 0.3
-        Head Radius: 0.1
-        Shaft Length: 1
-        Shaft Radius: 0.05
-        Value: Arrow
-      Topic: /odometry/filtered
-      Unreliable: false
-      Value: true
-
-    # -----------------------------------------------------------------------
-    # Ping1D Sonar Range (rendered as a cone/ring in RViz)
-    # -----------------------------------------------------------------------
-    - Class: rviz/Range
-      Buffer Length: 1
-      Color: 0; 229; 255
-      Enabled: true
-      Name: Ping1D Range
-      Queue Size: 5
-      Topic: /sonar/ping1d/range
-      Unreliable: false
-      Value: true
-
-    # -----------------------------------------------------------------------
-    # Real-time Depth Cloud from monocular AI depth map
-    # -----------------------------------------------------------------------
-    - Alpha: 0.8
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 6.0
-        Min Value: 0.3
-        Value: true
-      Axis: Z
-      Channel Name: rgb
-      Class: rviz/PointCloud2
-      Color: 200; 200; 200
-      Color Transformer: RGB8
-      Decay Time: 0.3
-      Enabled: false
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
-      Name: AI Depth PointCloud (per frame)
-      Position Transformer: XYZ
-      Queue Size: 5
-      Size (Pixels): 2
-      Size (m): 0.008
-      Style: Points
-      Topic: /camera/depth/points
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: false
-
-    # -----------------------------------------------------------------------
-    # RTAB-Map Occupancy Grid (3D→2D floor projection, useful for navigation)
-    # -----------------------------------------------------------------------
-    - Alpha: 0.65
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: false
-      Name: Occupancy Grid
-      Topic: /rtabmap/octomap_grid
-      Unreliable: false
-      Use Timestamp: false
-      Value: false
 
   Enabled: true
   Global Options:
