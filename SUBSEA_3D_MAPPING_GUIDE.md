@@ -291,3 +291,27 @@ Semua file telah disinkronkan antara folder Windows `c:\remote_ROV` dan folder C
 - **Bar30 & Ping1D Bridge Node**: [`depth_to_pose_publisher.py`](file:///c:/remote_ROV/depth_to_pose_publisher.py)
 - **Konfigurasi RViz Golden Reference**: [`subsea_mapping.rviz`](file:///c:/remote_ROV/subsea_mapping.rviz)
 - **Konfigurasi EKF 6-DoF**: [`ekf_params.yaml`](file:///c:/remote_ROV/ekf_params.yaml)
+
+---
+
+## 6. Visualisasi 3D Web Interaktif (Three.js) & Ekspor Model 3D
+
+Selain dilihat di RViz, hasil pemetaan 3D padat (*Dense 3D Point Cloud*) dari RTAB-Map SLAM dapat dibuka langsung di browser web berbasis **Three.js** tanpa memerlukan ROS, Linux, ataupun X-Server!
+
+### Fitur Web Viewer Three.js:
+- **Orbit 360° & Zoom Bebas**: Navigasi interaktif menggunakan mouse / touch gesture.
+- **Skema Pewarnaan Fleksibel**:
+  - *RGB Asli*: Warna asli dari kamera HD bawah air.
+  - *Elevasi Z (Depth Color)*: Turbo/Jet gradient menunjukkan kontur kedalaman.
+  - *Deep Sea Cyber*: Visualisasi neon cyan kontras tinggi.
+- **Alat Ukur Jarak (Interactive Ruler)**: Klik 2 titik pada point cloud untuk mengukur dimensi objek secara akurat dalam centimeter / meter.
+- **Lantai 2.5D EgoExo & Grid Metrik 1m**: Memberikan orientasi spasial dan skala nyata bawah air.
+- **Drag & Drop / File Browser**: Membaca file `.ply`, `.pcd`, dan `.obj` secara instan langsung dari disk lokal tanpa hambatan CORS.
+- **Snapshot Generator**: Simpan gambar 3D beresolusi tinggi (PNG) untuk laporan dan publikasi.
+
+### Cara Menggunakan:
+1. **Buka Web Viewer (Kapan Saja)**:
+   > Dobel klik [**`open_3d_web_viewer.bat`**](file:///c:/remote_ROV/open_3d_web_viewer.bat) atau buka [**`view_slam_3d_web.html`**](file:///c:/remote_ROV/view_slam_3d_web.html) di Google Chrome / Edge.
+2. **Ekspor Otomatis Peta SLAM Terbaru**:
+   > Dobel klik [**`export_3d_map.bat`**](file:///c:/remote_ROV/export_3d_map.bat). Skrip akan mengekstrak `rtabmap.db` menjadi `export/subsea_3d_map.ply` dan langsung meluncurkan viewer di browser.
+
