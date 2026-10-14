@@ -1,0 +1,71 @@
+%YAML:1.0
+
+# Common parameters
+imu_topic: "/imu/data"
+image_topic: "/camera/image_enhanced"
+output_path: "/home/fadzkal_luthfi/vins_output/"
+
+# Camera calibration (BlueROV2 Low-Light HD Camera scaled to 960x540)
+model_type: PINHOLE
+camera_name: bluerov2_cam
+image_width: 960
+image_height: 540
+distortion_parameters:
+   k1: 0.0
+   k2: 0.0
+   p1: 0.0
+   p2: 0.0
+projection_parameters:
+   fx: 600.0
+   fy: 600.0
+   cx: 480.0
+   cy: 270.0
+
+# Extrinsic parameter between IMU and Camera.
+# 2 = Automatically calibrate rotation & translation online during movement
+estimate_extrinsic: 2
+
+extrinsicRotation: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1, 0, 0,
+          0, 1, 0,
+          0, 0, 1]
+
+extrinsicTranslation: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [0.0, 0.05, 0.15]
+
+# Feature tracker parameters
+max_cnt: 180            # Max feature points tracked
+min_dist: 20            # Min distance between features
+freq: 10                # Tracking frequency (Hz)
+F_threshold: 1.0        # RANSAC threshold (pixel)
+show_track: 1           # Publish tracked features image (/feature_tracker/feature_img)
+equalize: 1             # CLAHE adaptive histogram equalization enabled
+fisheye: 0
+
+# Optimization parameters
+max_solver_time: 0.04   # Max solver iteration time
+max_num_iterations: 8   # Max solver iterations
+keyframe_parallax: 10.0 # Keyframe selection threshold
+
+# IMU Noise parameters (Pixhawk / Bar30)
+acc_n: 0.15             # Accelerometer noise
+gyr_n: 0.02             # Gyroscope noise
+acc_w: 0.001            # Accelerometer bias random work
+gyr_w: 0.0001           # Gyroscope bias random work
+g_norm: 9.81            # Gravity magnitude
+
+# Loop closure
+loop_closure: 1
+load_previous_pose_graph: 0
+fast_relocalization: 1
+pose_graph_save_path: "/home/fadzkal_luthfi/vins_output/pose_graph/"
+
+# Estimate td (time sync delay between camera and IMU)
+estimate_td: 1
+td: 0.0

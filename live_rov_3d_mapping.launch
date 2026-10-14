@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="camera_url" default="http://192.168.2.1:8555/video" />
+  <arg name="blueos_ip" default="192.168.2.2" />
+
+  <!-- 1. Live Camera Stream Node from BlueROV2 -->
+  <include file="$(find video_stream_opencv)/launch/camera.launch">
+    <arg name="camera_name" value="camera" />
+    <arg name="video_stream_provider" value="$(arg camera_url)" />
+    <arg name="fps" value="15" />
+    <arg name="set_camera_fps" value="15" />
+    <arg name="buffer_queue_size" value="1" />
+    <arg name="frame_id" value="camera_optical_link" />
+    <arg name="camera_info_url" value="package://subsea_3d_mapping/config/camera_info.yaml" />
+  </include>
+
+  <!-- 2. Live BlueOS Telemetry & IMU Bridge -->
+  <node pkg="subsea_3d_mapping" type="blueos_live_bridge.py" name="blueos_bridge" output="screen">
+    <param name="blueos_ip" type="string" value="$(arg blueos_ip)" />
+    <param name="rate" type="double" value="20.0" />
+    <param name="publish_tf" type="bool" value="false" />
+  </node>
+
+  <!-- 3. Coordinate Frames (Static TF) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_camera" 
+        args="0.18 0.0 0.05 0 0 0 base_link camera_link" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_to_optical" 
+        args="0 0 0 -1.5707963 0 -1.5707963 camera_link camera_optical_link" />
+
+  <!-- Ping1D Sonar forward acoustic beam TF -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_ping1d" 
+        args="0.15 0.0 -0.05 0 0 0 base_link ping1d_sonar_link" />
+
+  <!-- Bar30 Hydrostatic Pressure Sensor TF -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_bar30" 
+        args="0.0 0.0 -0.08 0 0 0 base_link bar30_depth_link" />
+
+  <!-- 4. AI Monocular Depth & Synchronizer Generator -->
+  <node pkg="subsea_3d_mapping" type="monocular_depth_node.py" name="monocular_depth" output="screen">
+    <param name="depth_scale" value="6.0" />
+    <param name="point_step" value="8" />
+    <param name="image_topic" value="/camera/image_raw" />
+  </node>
+
+  <!-- 5. RTAB-Map Visual Odometry & Dense 3D Mapping -->
+  <group ns="rtabmap">
+    <!-- Visual Odometry: tracks movement (forward, turn, strafe, backward) from camera -->
+    <node pkg="rtabmap_odom" type="rgbd_odometry" name="rgbd_odometry" output="screen">
+      <param name="frame_id"                    type="string" value="base_link"/>
+      <param name="odom_frame_id"               type="string" value="odom"/>
+      <param name="publish_tf"                  type="bool"   value="true"/>
+      <param name="approx_sync"                 type="bool"   value="true"/>
+      <param name="queue_size"                  type="int"    value="10"/>
+      <param name="wait_for_transform"          type="bool"   value="true"/>
+      <param name="wait_for_transform_duration" type="double" value="0.5"/>
+
+      <remap from="rgb/image"                   to="/camera/synced/image"/>
+      <remap from="depth/image"                 to="/camera/synced/depth"/>
+      <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
+      <remap from="odom"                        to="/rtabmap/odom"/>
+
+      <param name="Odom/Strategy"               type="string" value="0"/> <!-- Frame-to-Map -->
+      <param name="Odom/Holonomic"              type="string" value="true"/> <!-- Enable 6-DoF strafe and orbit -->
+      <param name="Odom/ResetCountdown"         type="string" value="1"/>
+      <param name="Odom/KeyFrameThr"            type="string" value="0.3"/>
+      <param name="Vis/FeatureType"             type="string" value="8"/> <!-- ORB features -->
+      <param name="Vis/MaxFeatures"             type="string" value="600"/>
+      <param name="Vis/MinInliers"              type="string" value="6"/>
+    </node>
+
+    <!-- RTAB-Map SLAM Node: accumulates dense 3D map from multi-angle views -->
+    <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="--delete_db_on_start">
+      <param name="frame_id"                    type="string" value="base_link"/>
+      <param name="odom_frame_id"               type="string" value="odom"/>
+      <param name="map_frame_id"                type="string" value="map"/>
+      <param name="subscribe_depth"             type="bool"   value="true"/>
+      <param name="subscribe_rgb"               type="bool"   value="false"/>
+      <param name="subscribe_odom"              type="bool"   value="true"/>
+      <param name="approx_sync"                 type="bool"   value="true"/>
+      <param name="queue_size"                  type="int"    value="10"/>
+      <param name="sync_queue_size"             type="int"    value="10"/>
+      <param name="tf_tolerance"                type="double" value="0.5"/>
+      <param name="wait_for_transform"          type="bool"   value="true"/>
+      <param name="wait_for_transform_duration" type="double" value="0.5"/>
+
+      <remap from="rgb/image"                   to="/camera/synced/image"/>
+      <remap from="depth/image"                 to="/camera/synced/depth"/>
+      <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
+      <remap from="odom"                        to="/rtabmap/odom"/>
+
+      <param name="RGBD/Enabled"                type="string" value="true"/>
+      <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
+      <param name="Kp/DetectorStrategy"         type="string" value="8"/>
+      <param name="Kp/MaxFeatures"              type="string" value="500"/>
+      <param name="Grid/FromDepth"              type="string" value="true"/>
+      <param name="Grid/RangeMax"               type="string" value="6.0"/>
+      <param name="Grid/RangeMin"               type="string" value="0.35"/>
+      <param name="Grid/DepthDecimation"        type="int"    value="8"/>
+      <param name="Grid/CellSize"               type="double" value="0.07"/>
+      <param name="Grid/VoxelSize"              type="double" value="0.07"/>
+      <param name="cloud_voxel_size"            type="double" value="0.07"/>
+      <param name="RGBD/LinearUpdate"           type="string" value="0.15"/>
+      <param name="RGBD/AngularUpdate"          type="string" value="0.20"/>
+      <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
+      <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
+    </node>
+  </group>
+
+  <!-- 6. RViz 3D Visualizer -->
+  <node pkg="rviz" type="rviz" name="rviz" 
+        args="-d $(find subsea_3d_mapping)/rviz/subsea_mapping.rviz" />
+
+</launch>

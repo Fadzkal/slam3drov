@@ -1,0 +1,312 @@
+<?xml version="1.0"?>
+<!--
+  subsea_3d_mapping.launch  — BlueROV2 Underwater 3D Mapping
+  ===========================================================
+  Pipeline (semua real-time, bukan dummy):
+
+  [BlueROV2]
+     │ MAVLink via UDP (tether → ethernet)
+     ▼
+  1. MAVROS         → /mavros/imu/data, /mavros/altitude, ...
+  2. Video Stream   → /camera/image_raw
+  3. CLAHE Node     → /camera/image_enhanced  (kontras, anti blue-shift)
+  4. Sensor Bridge  → /bar30/pose_depth        (Bar30 → PoseWithCov untuk EKF)
+                   → /sonar/ping1d/range       (Ping1D → Range untuk RTAB-Map)
+  5. EKF (robot_localization)
+                   → /odometry/filtered        (fusi IMU+Bar30+VisualOdom)
+  6. Monocular Depth Node (MiDaS ONNX)
+                   → /camera/synced/image,depth,camera_info
+  7. RTAB-Map SLAM  → /rtabmap/mapData          (3D point cloud accumulation)
+                   → /rtabmap/mapGraph          (pose graph + loop closure)
+                   → /rtabmap/odom             (visual odometry)
+  8. Path Publisher → /robot_path               (trajectory untuk RViz)
+  9. RViz           → Visualisasi lengkap
+ 10. ROS Bag Recorder → simpan semua topik penting
+-->
+<launch>
+  <!-- ======================================================================
+       ARGUMENTS — ubah sesuai setup jaringan Anda
+  ====================================================================== -->
+  <arg name="blueos_ip"   default="192.168.2.2"
+       doc="IP BlueOS companion computer (default BlueROV2 subnet)" />
+  <arg name="fcu_url"     default="udp://:14550@192.168.2.2:14550"
+       doc="MAVLink endpoint (UDP dari BlueOS ke laptop)" />
+
+  <!-- Camera stream: HTTP MJPEG via live_camera_relay.py (port 8555) or RTSP fallback -->
+  <arg name="camera_url"  default="http://192.168.2.1:8555/video"
+       doc="Video stream URL dari BlueOS relay (http://192.168.2.1:8555/video)" />
+
+  <!-- Set true untuk simpan rosbag otomatis -->
+  <arg name="record_bag"  default="false" />
+  <arg name="bag_path"    default="$(env HOME)/catkin_ws/bags" />
+
+  <!-- ======================================================================
+       1. MAVROS — MAVLink bridge ke ROS
+       Publishes: /mavros/imu/data, /mavros/altitude, /mavros/state, dll.
+  ====================================================================== -->
+  <include file="$(find mavros)/launch/node.launch">
+    <arg name="pluginlists_yaml" value="$(find mavros)/launch/apm_pluginlists.yaml" />
+    <arg name="config_yaml"      value="$(find mavros)/launch/apm_config.yaml" />
+    <arg name="fcu_url"          value="$(arg fcu_url)" />
+    <arg name="gcs_url"          value="" />
+    <arg name="tgt_system"       value="1" />
+    <arg name="tgt_component"    value="1" />
+    <arg name="log_output"       value="screen" />
+  </include>
+
+  <!-- ======================================================================
+       2. Video Stream Node — kamera BlueROV2 via RTSP/HTTP
+       Publishes: /camera/image_raw, /camera/camera_info
+  ====================================================================== -->
+  <node pkg="video_stream_opencv" type="video_stream" name="rov_camera" output="screen">
+    <param name="camera_name"          type="string" value="camera" />
+    <param name="video_stream_provider" type="string" value="$(arg camera_url)" />
+    <param name="set_camera_fps"       type="double" value="25" />
+    <param name="buffer_queue_size"    type="int"    value="1" />
+    <param name="fps"                  type="double" value="25" />
+    <param name="frame_id"             type="string" value="camera_optical_link" />
+    <param name="camera_info_url"      type="string"
+           value="package://subsea_3d_mapping/config/camera_info.yaml" />
+    <param name="flip_horizontal"      type="bool"   value="false" />
+    <param name="flip_vertical"        type="bool"   value="false" />
+    <!-- video_stream_opencv dengan camera_name=camera otomatis publish ke /camera/image_raw -->
+    <!-- Remap dari nama node (rov_camera) ke namespace /camera -->
+    <remap from="image_raw"    to="/camera/image_raw" />
+    <remap from="camera_info"  to="/camera/camera_info" />
+  </node>
+
+  <!-- ======================================================================
+       3. Static TF Transforms (kalibrasi posisi sensor di bodi ROV)
+       Semua relatif terhadap base_link (pusat ROV).
+       Sesuaikan nilai jika posisi sensor berbeda di ROV Anda.
+  ====================================================================== -->
+  <!-- IMU (Pixhawk) → diasumsikan di pusat ROV -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_imu"
+        args="0 0 0 0 0 0 base_link base_imu_link" />
+
+  <!-- Kamera HD → 18cm di depan, 5cm di atas center -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_camera"
+        args="0.18 0.0 0.05 0 0 0 base_link camera_link" />
+
+  <!-- ROS optical frame convention: Z ke depan, X ke kanan, Y ke bawah -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_to_optical"
+        args="0 0 0 -1.5707963 0 -1.5707963 camera_link camera_optical_link" />
+
+  <!-- Ping1D Sonar → 15cm di depan, 5cm di bawah center (tergantung mounting ROV) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_ping1d"
+        args="0.15 0.0 -0.05 0 0 0 base_link ping1d_sonar_link" />
+
+  <!-- Bar30 Pressure Sensor → bawah ROV -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="base_to_bar30"
+        args="0.0 0.0 -0.08 0 0 0 base_link bar30_depth_link" />
+
+  <!-- ======================================================================
+       4. CLAHE Enhancement Node
+       Input:  /camera/image_raw  (raw BGR dari ROV)
+       Output: /camera/image_enhanced  (kontras adaptif anti blue-shift)
+  ====================================================================== -->
+  <node pkg="subsea_3d_mapping" type="underwater_clahe_node.py"
+        name="underwater_clahe" output="screen">
+    <param name="width"  value="960" />
+    <param name="height" value="540" />
+  </node>
+
+  <!-- ======================================================================
+       5. Sensor Bridge (Bar30 + Ping1D)
+       Input:  BlueOS REST API @ $(arg blueos_ip)
+       Output: /bar30/pose_depth      → EKF Z-fix
+               /sonar/ping1d/range   → RTAB-Map Range input
+               /sonar/ping1d/dist    → human-readable cm
+  ====================================================================== -->
+  <node pkg="subsea_3d_mapping" type="depth_to_pose_publisher.py"
+        name="sensor_bridge" output="screen">
+    <param name="blueos_ip"       value="$(arg blueos_ip)" />
+    <param name="rate_hz"         value="10.0" />
+    <param name="depth_covariance" value="0.0001" />
+    <param name="ping_min_m"      value="0.20" />
+    <param name="ping_max_m"      value="30.0" />
+  </node>
+
+  <!-- ======================================================================
+       6. AI Monocular Depth Node (MiDaS-small ONNX)
+       Input:  /camera/image_raw + /sonar/ping1d/distance (scale anchor)
+       Output: /camera/synced/image   (time-synced RGB)
+               /camera/synced/depth   (metric depth image, 32FC1)
+               /camera/synced/camera_info
+               /camera/depth/points   (per-frame PointCloud2 preview)
+  ====================================================================== -->
+  <node pkg="subsea_3d_mapping" type="monocular_depth_node.py"
+        name="monocular_depth" output="screen">
+    <param name="depth_scale" value="5.0" />   <!-- max depth range estimate (m) -->
+    <param name="point_step"  value="4" />     <!-- downsample step untuk PointCloud2 -->
+  </node>
+
+  <!-- ======================================================================
+       7. robot_localization EKF — Sensor Fusion
+       Input:  /mavros/imu/data    (IMU: roll, pitch, angular velocities)
+               /bar30/pose_depth   (Bar30: absolute Z depth)
+               /rtabmap/odom       (Visual Odometry: XYZ + yaw dari SLAM)
+       Output: /odometry/filtered  (smooth 6-DoF fused pose)
+               /tf: odom → base_link
+  ====================================================================== -->
+  <node pkg="robot_localization" type="ekf_localization_node"
+        name="ekf_localization" output="screen" clear_params="true">
+    <rosparam command="load"
+              file="$(find subsea_3d_mapping)/config/ekf_params.yaml" />
+  </node>
+
+  <!-- ======================================================================
+       8. RTAB-Map SLAM
+       Input:  /camera/synced/image         (enhanced RGB dari MiDaS node)
+               /camera/synced/depth         (metric depth dari MiDaS node)
+               /camera/synced/camera_info
+               /odometry/filtered           (EKF-fused odometry sebagai prior)
+               /sonar/ping1d/range          (Range constraint dari sonar)
+       Output: /rtabmap/mapData             (accumulated 3D map)
+               /rtabmap/mapGraph            (pose graph + loop closure)
+               /rtabmap/cloud_map           (full cloud)
+               /rtabmap/info                (FPS, memory, node count)
+  ====================================================================== -->
+  <group ns="rtabmap">
+
+    <!-- Visual Odometry (RGB-D): Menghitung gerak 6-DoF ROV dari kamera secara real-time -->
+    <node pkg="rtabmap_odom" type="rgbd_odometry" name="rgbd_odometry" output="screen">
+      <param name="frame_id"                    type="string" value="base_link" />
+      <param name="odom_frame_id"               type="string" value="odom" />
+      <param name="publish_tf"                  type="bool"   value="false" /> <!-- TF odom->base_link di-handle oleh EKF -->
+      <param name="approx_sync"                 type="bool"   value="true" />
+      <param name="queue_size"                  type="int"    value="20" />
+      <param name="wait_for_transform"          type="bool"   value="true" />
+      <param name="wait_for_transform_duration" type="double" value="0.5" />
+
+      <remap from="rgb/image"                   to="/camera/synced/image" />
+      <remap from="depth/image"                 to="/camera/synced/depth" />
+      <remap from="rgb/camera_info"             to="/camera/synced/camera_info" />
+      <remap from="odom"                        to="/rtabmap/odom" />
+
+      <!-- Algoritma Odometry di Bawah Air: Frame-to-Map + ORB features -->
+      <param name="Odom/Strategy"               type="string" value="0" /> <!-- 0 = Frame-to-Map (sangat stabil) -->
+      <param name="Odom/Holonomic"              type="string" value="true" /> <!-- 6-DoF bebas bergerak underwater -->
+      <param name="Odom/ResetCountdown"         type="string" value="1" />
+      <param name="Odom/KeyFrameThr"            type="string" value="0.3" />
+      <param name="Vis/FeatureType"             type="string" value="8" /> <!-- 8 = ORB features -->
+      <param name="Vis/MaxFeatures"             type="string" value="800" />
+      <param name="Vis/MinInliers"              type="string" value="7" />
+      <param name="Vis/CorType"                 type="string" value="0" />
+    </node>
+
+    <!-- RTAB-Map SLAM Node -->
+    <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap"
+          output="screen" args="--delete_db_on_start">
+
+      <!-- Frame IDs -->
+      <param name="frame_id"        type="string" value="base_link" />
+      <param name="odom_frame_id"   type="string" value="odom" />
+      <param name="map_frame_id"    type="string" value="map" />
+
+      <!-- Use external EKF odometry (more robust than internal VO in murky water) -->
+      <param name="subscribe_odom"   type="bool" value="true" />
+      <param name="subscribe_depth"  type="bool" value="true" />
+      <param name="subscribe_rgb"    type="bool" value="false" />
+
+      <!-- Subscribe to Ping1D Range as sparse scan constraint -->
+      <param name="subscribe_scan"   type="bool" value="false" />
+
+      <!-- Sync and Queue -->
+      <param name="approx_sync"      type="bool" value="true" />
+      <param name="queue_size"       type="int"  value="20" />
+      <param name="sync_queue_size"  type="int"  value="20" />
+      <param name="tf_tolerance"     type="double" value="0.5" />
+
+      <!-- Topic remaps -->
+      <remap from="rgb/image"         to="/camera/synced/image" />
+      <remap from="depth/image"       to="/camera/synced/depth" />
+      <remap from="rgb/camera_info"   to="/camera/synced/camera_info" />
+      <remap from="odom"              to="/odometry/filtered" />
+
+      <!-- [Visual Feature Tuning for Underwater] -->
+      <!-- ORB features: faster than SIFT, handles motion blur better -->
+      <!-- Kp/DetectorStrategy 8 = ORB -->
+      <param name="Kp/DetectorStrategy"    type="string" value="8" />
+      <param name="Kp/MaxFeatures"         type="string" value="800" />
+      <!-- Vis/MinInliers: lower value = more tolerant in turbid water -->
+      <param name="Vis/MinInliers"         type="string" value="8" />
+      <param name="Vis/FeatureType"        type="string" value="8" />
+      <!-- Vis/CorType 0 = optical flow matching -->
+      <param name="Vis/CorType"            type="string" value="0" />
+      <param name="Vis/MaxFeatures"        type="string" value="600" />
+
+      <!-- [SLAM Detection Rate: 1-2 Hz untuk hemat CPU] -->
+      <param name="Rtabmap/DetectionRate"  type="string" value="1.0" />
+      <!-- Rtabmap/TimeThr: ms budget per loop iteration -->
+      <param name="Rtabmap/TimeThr"        type="string" value="700" />
+
+      <!-- [3D Grid / Voxelization] -->
+      <param name="Grid/FromDepth"         type="string" value="true" />
+      <param name="Grid/RangeMin"          type="string" value="0.3" />
+      <param name="Grid/RangeMax"          type="string" value="5.5" />
+      <!-- cloud_voxel_size: 2cm voxel untuk keseimbangan detail vs memori -->
+      <param name="cloud_voxel_size"       type="double" value="0.02" />
+
+      <!-- [RGBD Options] -->
+      <param name="RGBD/Enabled"           type="string" value="true" />
+      <!-- LinearUpdate/AngularUpdate: minimum gerak sebelum tambah keyframe -->
+      <param name="RGBD/LinearUpdate"      type="string" value="0.05" />
+      <param name="RGBD/AngularUpdate"     type="string" value="0.05" />
+      <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
+      <param name="RGBD/CreateOccupancyGrid"  type="string" value="true" />
+
+      <!-- [Loop Closure] -->
+      <param name="Mem/RehearsalSimilarity" type="string" value="0.45" />
+      <param name="Rtabmap/LoopThr"         type="string" value="0.11" />
+    </node>
+
+  </group>
+
+  <!-- ======================================================================
+       9. ROV Trajectory & Body Tracker (live Path & 3D orientation marker)
+       Input:  /odometry/filtered (fused EKF odometry)
+       Output: /robot_path (nav_msgs/Path) + /rov/model_marker + stats
+  ====================================================================== -->
+  <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py"
+        name="rov_trajectory_tracker" output="screen">
+    <param name="max_path_length" value="8000" />
+    <param name="min_step_m"      value="0.015" />
+  </node>
+
+  <!-- ======================================================================
+       10. RViz Visualizer
+  ====================================================================== -->
+  <node pkg="rviz" type="rviz" name="rviz" output="log"
+        args="-d $(find subsea_3d_mapping)/rviz/subsea_mapping.rviz" />
+
+  <!-- ======================================================================
+       11. ROS Bag Recorder (opsional, aktifkan dengan record_bag:=true)
+       Menyimpan semua topik penting untuk analisis offline
+  ====================================================================== -->
+  <group if="$(arg record_bag)">
+    <node pkg="rosbag" type="record" name="bag_recorder" output="screen"
+          args="-o $(arg bag_path)/bluerov2_mapping
+                /camera/image_raw
+                /camera/image_enhanced
+                /camera/synced/image
+                /camera/synced/depth
+                /camera/synced/camera_info
+                /mavros/imu/data
+                /mavros/imu/data_raw
+                /mavros/altitude
+                /mavros/state
+                /bar30/pose_depth
+                /sonar/ping1d/range
+                /sonar/ping1d/dist
+                /odometry/filtered
+                /rtabmap/odom
+                /rtabmap/mapData
+                /rtabmap/mapGraph
+                /rtabmap/info
+                /robot_path
+                /tf
+                /tf_static" />
+  </group>
+
+</launch>

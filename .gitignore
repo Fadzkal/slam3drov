@@ -1,0 +1,32 @@
+# BlueROV2 3D SLAM Git Ignore
+
+# External Repositories / Submodules
+cockpit/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+
+# Large media files (videos)
+videos/
+*.mp4
+*.avi
+*.mkv
+*.mov
+
+# Logs & temp
+*.log
+scratch/
+test_clone/
+.vscode/
+.idea/
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+.DS_Store
