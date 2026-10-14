@@ -5,7 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /RTAB-Map 3D Cloud1
+        - /PointCloud21
+        - /MapCloud1
+        - /Robot Trajectory1
+        - /Info1
       Splitter Ratio: 0.48
     Tree Height: 700
   - Class: rviz/Views
@@ -22,17 +25,17 @@ Visualization Manager:
   Class: ""
   Displays:
     # -----------------------------------------------------------------------
-    # Ground Grid (1m squares)
+    # 1. Grid
     # -----------------------------------------------------------------------
     - Alpha: 0.4
       Cell Size: 1
       Class: rviz/Grid
-      Color: 30; 80; 120
+      Color: 50; 90; 130
       Enabled: true
       Line Style:
         Line Width: 0.02
         Value: Lines
-      Name: Grid 1m
+      Name: Grid
       Normal Cell Count: 0
       Offset:
         X: 0
@@ -44,7 +47,41 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # TF Frames (minimal: base_link + camera_link only)
+    # 2. PointCloud2 (Real-Time AI Dense Depth Cloud from MiDaS ONNX)
+    # Ini yang membentuk visual surface 3D mulus realtime seperti di video referensi
+    # -----------------------------------------------------------------------
+    - Alpha: 1.0
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 5.0
+        Min Value: 0.25
+        Value: true
+      Axis: Z
+      Channel Name: rgb
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: RGB8
+      Decay Time: 0.0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 5
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.008
+      Style: Points
+      Topic: /camera/depth/points
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: false
+      Value: true
+
+    # -----------------------------------------------------------------------
+    # 3. TF Frames (base_link, camera_link, odom, map)
+    # Arrow dimatikan agar tidak ada garis kuning panjang menusuk ke infinity
     # -----------------------------------------------------------------------
     - Class: rviz/TF
       Enabled: true
@@ -62,11 +99,11 @@ Visualization Manager:
         bar30_depth_link:
           Value: false
         odom:
-          Value: false
+          Value: true
         map:
-          Value: false
+          Value: true
       Marker Scale: 0.5
-      Name: TF Frames
+      Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: true
@@ -74,7 +111,7 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # Live Camera Feed (raw from BlueROV2)
+    # 4. Live Camera ROV Feed
     # -----------------------------------------------------------------------
     - Class: rviz/Image
       Enabled: true
@@ -82,7 +119,7 @@ Visualization Manager:
       Max Value: 1
       Median window: 5
       Min Value: 0
-      Name: Camera ROV (Raw)
+      Name: Image
       Normalize Range: false
       Queue Size: 2
       Transport Hint: raw
@@ -90,10 +127,10 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Dense 3D Point Cloud Map (MapCloud plugin)
-    # PERBAIKAN: cloud decimation NAIK, voxel BESAR → anti lag
+    # 5. RTAB-Map MapCloud (Akumulasi Peta 3D Padat & Tajam)
+    # Decimation 4 & Voxel 0.03m: padat membentuk objek tanpa lag
     # -----------------------------------------------------------------------
-    - Alpha: 1
+    - Alpha: 1.0
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
         Max Value: 10
@@ -102,10 +139,10 @@ Visualization Manager:
       Axis: Z
       Channel Name: rgb
       Class: rtabmap_rviz_plugins/MapCloud
-      Cloud decimation: 16
-      Cloud max depth (m): 4.0
-      Cloud min depth (m): 0.4
-      Cloud voxel size (m): 0.10
+      Cloud decimation: 4
+      Cloud max depth (m): 5.0
+      Cloud min depth (m): 0.25
+      Cloud voxel size (m): 0.03
       Color: 255; 255; 255
       Color Transformer: RGB8
       Download graph: true
@@ -118,12 +155,12 @@ Visualization Manager:
       Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: RTAB-Map 3D Cloud
-      Node filtering angle (degrees): 30
-      Node filtering radius (m): 0.30
+      Name: MapCloud
+      Node filtering angle (degrees): 20
+      Node filtering radius (m): 0.15
       Position Transformer: XYZ
       Size (Pixels): 2
-      Size (m): 0.02
+      Size (m): 0.015
       Style: Points
       Topic: /rtabmap/mapData
       Unreliable: false
@@ -132,15 +169,70 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Graph (pose graph, loop closures)
+    # 6. Robot Trajectory (Jalur Hijau Terang ROV)
     # -----------------------------------------------------------------------
-    - Alpha: 1
+    - Alpha: 1.0
+      Buffer Length: 10000
+      Class: rviz/Path
+      Color: 0; 255; 0
+      Enabled: true
+      Head Diameter: 0.15
+      Head Length: 0.1
+      Length: 0.1
+      Line Style: Lines
+      Line Width: 0.03
+      Name: Robot Trajectory
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 0; 255; 255
+      Pose Style: None
+      Radius: 0.02
+      Shaft Diameter: 0.05
+      Shaft Length: 0.05
+      Topic: /robot_path
+      Unreliable: false
+      Value: true
+
+    # -----------------------------------------------------------------------
+    # 7. Global 3D Map (Cloud Map penuh - default off agar hemat memori)
+    # -----------------------------------------------------------------------
+    - Alpha: 1.0
+      Class: rviz/PointCloud2
+      Color Transformer: RGB8
+      Decay Time: 0
+      Enabled: false
+      Name: Global 3D Map
+      Position Transformer: XYZ
+      Queue Size: 2
+      Selectable: false
+      Size (Pixels): 2
+      Style: Points
+      Topic: /rtabmap/cloud_map
+      Unreliable: false
+      Value: false
+
+    # -----------------------------------------------------------------------
+    # 8. RTAB-Map Info (Monitor Loop Closure & Memory)
+    # -----------------------------------------------------------------------
+    - Class: rtabmap_rviz_plugins/Info
+      Enabled: true
+      Name: Info
+      Topic: /rtabmap/info
+      Unreliable: false
+      Value: true
+
+    # -----------------------------------------------------------------------
+    # 9. RTAB-Map Graph (Pose Graph & Loop Closure Connections)
+    # -----------------------------------------------------------------------
+    - Alpha: 1.0
       Class: rtabmap_rviz_plugins/MapGraph
       Enabled: true
       Global loop closure: 255; 0; 0
       Local loop closure: 255; 255; 0
       Merged neighbor: 255; 170; 0
-      Name: Pose Graph
+      Name: MapGraph
       Neighbor: 0; 100; 255
       Topic: /rtabmap/mapGraph
       Unreliable: false
@@ -149,18 +241,22 @@ Visualization Manager:
       Virtual: 255; 0; 255
 
     # -----------------------------------------------------------------------
-    # RTAB-Map Info (status monitor)
+    # 10. Map (Occupancy Grid - default off)
     # -----------------------------------------------------------------------
-    - Class: rtabmap_rviz_plugins/Info
-      Enabled: true
-      Name: RTAB-Map Info
-      Topic: /rtabmap/info
+    - Alpha: 0.65
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: false
+      Name: Map
+      Topic: /rtabmap/grid_map
       Unreliable: false
-      Value: true
+      Use Timestamp: false
+      Value: false
 
   Enabled: true
   Global Options:
-    Background Color: 5; 8; 17
+    Background Color: 0; 0; 0
     Default Light: true
     Fixed Frame: map
     Frame Rate: 30
@@ -175,14 +271,14 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 8.0
+      Distance: 3.5
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.0
+        X: 0.8
         Y: 0.0
         Z: 0.0
       Focal Shape Fixed Size: true
@@ -190,10 +286,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.45
-      Target Frame: map
+      Pitch: 0.22
+      Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.785
+      Yaw: 3.14
     Saved: ~
 Window Geometry:
   Displays:

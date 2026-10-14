@@ -137,8 +137,8 @@
   ====================================================================== -->
   <node pkg="subsea_3d_mapping" type="monocular_depth_node.py"
         name="monocular_depth" output="screen">
-    <param name="depth_scale" value="5.0" />   <!-- max depth range estimate (m) -->
-    <param name="point_step"  value="4" />     <!-- downsample step untuk PointCloud2 -->
+    <param name="depth_scale" value="4.5" />   <!-- max depth range estimate (m) -->
+    <param name="point_step"  value="3" />     <!-- downsample step untuk PointCloud2 -->
   </node>
 
   <!-- ======================================================================
@@ -191,7 +191,7 @@
       <param name="Odom/KeyFrameThr"            type="string" value="0.3" />
       <param name="Vis/FeatureType"             type="string" value="8" /> <!-- 8 = ORB features -->
       <param name="Vis/MaxFeatures"             type="string" value="800" />
-      <param name="Vis/MinInliers"              type="string" value="7" />
+      <param name="Vis/MinInliers"              type="string" value="12" />
       <param name="Vis/CorType"                 type="string" value="0" />
     </node>
 
@@ -226,37 +226,34 @@
 
       <!-- [Visual Feature Tuning for Underwater] -->
       <!-- ORB features: faster than SIFT, handles motion blur better -->
-      <!-- Kp/DetectorStrategy 8 = ORB -->
       <param name="Kp/DetectorStrategy"    type="string" value="8" />
       <param name="Kp/MaxFeatures"         type="string" value="800" />
-      <!-- Vis/MinInliers: lower value = more tolerant in turbid water -->
-      <param name="Vis/MinInliers"         type="string" value="8" />
+      <param name="Vis/MinInliers"         type="string" value="12" />
       <param name="Vis/FeatureType"        type="string" value="8" />
-      <!-- Vis/CorType 0 = optical flow matching -->
       <param name="Vis/CorType"            type="string" value="0" />
       <param name="Vis/MaxFeatures"        type="string" value="600" />
 
-      <!-- [SLAM Detection Rate: 1-2 Hz untuk hemat CPU] -->
+      <!-- [SLAM Detection Rate: 1.0 Hz untuk hemat CPU] -->
       <param name="Rtabmap/DetectionRate"  type="string" value="1.0" />
-      <!-- Rtabmap/TimeThr: ms budget per loop iteration -->
       <param name="Rtabmap/TimeThr"        type="string" value="700" />
 
       <!-- [3D Grid / Voxelization] -->
       <param name="Grid/FromDepth"         type="string" value="true" />
-      <param name="Grid/RangeMin"          type="string" value="0.3" />
-      <param name="Grid/RangeMax"          type="string" value="5.5" />
-      <!-- cloud_voxel_size: 2cm voxel untuk keseimbangan detail vs memori -->
-      <param name="cloud_voxel_size"       type="double" value="0.02" />
+      <param name="Grid/RangeMin"          type="string" value="0.25" />
+      <param name="Grid/RangeMax"          type="string" value="5.0" />
+      <param name="Grid/DepthDecimation"   type="int"    value="4" />
+      <param name="Grid/VoxelSize"         type="double" value="0.03" />
+      <param name="cloud_voxel_size"       type="double" value="0.03" />
 
       <!-- [RGBD Options] -->
       <param name="RGBD/Enabled"           type="string" value="true" />
-      <!-- LinearUpdate/AngularUpdate: minimum gerak sebelum tambah keyframe -->
-      <param name="RGBD/LinearUpdate"      type="string" value="0.05" />
-      <param name="RGBD/AngularUpdate"     type="string" value="0.05" />
+      <param name="RGBD/LinearUpdate"      type="string" value="0.10" />
+      <param name="RGBD/AngularUpdate"     type="string" value="0.15" />
       <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false" />
-      <param name="RGBD/CreateOccupancyGrid"  type="string" value="true" />
+      <param name="RGBD/CreateOccupancyGrid"  type="string" value="false" />
 
-      <!-- [Loop Closure] -->
+      <!-- [Loop Closure Stability] -->
+      <param name="RGBD/OptimizeMaxError"   type="string" value="0" />
       <param name="Mem/RehearsalSimilarity" type="string" value="0.45" />
       <param name="Rtabmap/LoopThr"         type="string" value="0.11" />
     </node>

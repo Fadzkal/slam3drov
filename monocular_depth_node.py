@@ -27,7 +27,7 @@ class MonocularDepthNode:
         self.input_name = self.session.get_inputs()[0].name
         
         self.bridge = CvBridge()
-        self.depth_scale = rospy.get_param("~depth_scale", 3.2)
+        self.depth_scale = rospy.get_param("~depth_scale", 4.5)
         self.step = rospy.get_param("~point_step", 3)
         
         # Ping1D Sonar Metric Anchor State
@@ -99,18 +99,17 @@ class MonocularDepthNode:
         depth_raw = out[0]
         
         # Robust percentile clipping to eliminate outliers and glares
-        p_low = np.percentile(depth_raw, 3)
-        p_high = np.percentile(depth_raw, 97)
+        p_low = np.percentile(depth_raw, 2)
+        p_high = np.percentile(depth_raw, 98)
         depth_clamped = np.clip(depth_raw, p_low, p_high)
         
         # Normalize disparity to [0.0, 1.0] (1.0 = close, 0.0 = far)
         denom = max(p_high - p_low, 1e-4)
         disp_norm = (depth_clamped - p_low) / denom
         
-        # Wide-perspective depth mapping:
-        # Spreads depth gracefully from z_near (e.g. 0.35m) out to z_far (depth_scale, e.g. 6.0m),
-        # filling out room volume and structures without squashing everything into 1 meter.
-        z_near = 0.35
+        # Metric depth mapping:
+        # Spreads depth gracefully from z_near (0.25m) out to z_far (depth_scale, default 4.5m)
+        z_near = 0.25
         z_far = float(self.depth_scale)
         depth_metric = z_near + (1.0 - disp_norm) * (z_far - z_near)
         
@@ -120,7 +119,7 @@ class MonocularDepthNode:
         if self.latest_ping_distance is not None and (now - self.latest_ping_time).to_sec() < 1.5:
             h_raw, w_raw = depth_metric.shape
             cy_c, cx_c = h_raw // 2, w_raw // 2
-            # Center acoustic cone region (approx 15% center box)
+            # Center acoustic cone region (approx 10% center box)
             box_h = max(2, int(h_raw * 0.10))
             box_w = max(2, int(w_raw * 0.10))
             center_est = float(np.median(depth_metric[cy_c - box_h:cy_c + box_h, cx_c - box_w:cx_c + box_w]))
@@ -185,6 +184,11 @@ class MonocularDepthNode:
                 P[6] *= scale_y
             info.P = P
             self.synced_info_pub.publish(info)
+            
+            fx = K[0]
+            cx = K[2]
+            fy = K[4]
+            cy = K[5]
         else:
             info = CameraInfo()
             info.header.stamp = now
@@ -199,36 +203,31 @@ class MonocularDepthNode:
             info.P = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
             self.synced_info_pub.publish(info)
         
-        if self.points_pub.get_num_connections() > 0:
-            fx = 1000.0 * (w / 1920.0)
-            fy = 1000.0 * (h / 1080.0)
-            cx = w / 2.0
-            cy = h / 2.0
-            
-            step = self.step
-            u_coords, v_coords = np.meshgrid(np.arange(0, w, step), np.arange(0, h, step))
-            Z = depth_metric_resized[v_coords, u_coords]
-            X = (u_coords - cx) * Z / fx
-            Y = (v_coords - cy) * Z / fy
-            
-            rgb_down = cv_img[v_coords, u_coords]
-            r = rgb_down[:, :, 2].astype(np.uint32)
-            g = rgb_down[:, :, 1].astype(np.uint32)
-            b = rgb_down[:, :, 0].astype(np.uint32)
-            rgb_packed = (r << 16) | (g << 8) | b
-            rgb_float = np.frombuffer(rgb_packed.tobytes(), dtype=np.float32).reshape(X.shape)
-            
-            points = np.stack([X, Y, Z, rgb_float], axis=-1).reshape(-1, 4)
-            
-            fields = [
-                PointField('x', 0, PointField.FLOAT32, 1),
-                PointField('y', 4, PointField.FLOAT32, 1),
-                PointField('z', 8, PointField.FLOAT32, 1),
-                PointField('rgb', 12, PointField.FLOAT32, 1)
-            ]
-            
-            pc2_msg = pc2.create_cloud(msg.header, fields, points)
-            self.points_pub.publish(pc2_msg)
+        # Always publish dense per-frame PointCloud2 for real-time 3D surface visualization (like video reference)
+        step = max(1, int(self.step))
+        u_coords, v_coords = np.meshgrid(np.arange(0, w, step), np.arange(0, h, step))
+        Z = depth_metric_resized[v_coords, u_coords]
+        X = (u_coords - cx) * Z / fx
+        Y = (v_coords - cy) * Z / fy
+        
+        rgb_down = cv_img[v_coords, u_coords]
+        r = rgb_down[:, :, 2].astype(np.uint32)
+        g = rgb_down[:, :, 1].astype(np.uint32)
+        b = rgb_down[:, :, 0].astype(np.uint32)
+        rgb_packed = (r << 16) | (g << 8) | b
+        rgb_float = np.frombuffer(rgb_packed.tobytes(), dtype=np.float32).reshape(X.shape)
+        
+        points = np.stack([X, Y, Z, rgb_float], axis=-1).reshape(-1, 4)
+        
+        fields = [
+            PointField('x', 0, PointField.FLOAT32, 1),
+            PointField('y', 4, PointField.FLOAT32, 1),
+            PointField('z', 8, PointField.FLOAT32, 1),
+            PointField('rgb', 12, PointField.FLOAT32, 1)
+        ]
+        
+        pc2_msg = pc2.create_cloud(msg.header, fields, points)
+        self.points_pub.publish(pc2_msg)
 
 if __name__ == "__main__":
     try:
