@@ -1,0 +1,87 @@
+# ekf_params.yaml
+# robot_localization EKF configuration for BlueROV2 underwater mapping
+# Fuses: IMU (MAVROS/BlueOS) + Bar30 Hydrostatic Depth + RTAB-Map Visual Odometry
+#
+# REP-103 frame convention: ENU (East-North-Up), right-hand coordinate system.
+# Underwater: Z decreases as ROV dives (negative Z = deeper).
+# Bar30 depth is converted to -Z in depth_to_pose_publisher.py.
+
+frequency: 30
+sensor_timeout: 0.5
+two_d_mode: false           # MUST be false for 3D underwater operation
+smooth_lagged_data: false
+print_diagnostics: true
+
+# Frame IDs (REP-105)
+map_frame:       map
+odom_frame:      odom
+base_link_frame: base_link
+world_frame:     odom        # Use 'map' once loop closures are reliable
+
+# ---------------------------------------------------------------------------
+# Sensor 0: MAVROS/BlueOS IMU (/mavros/imu/data)
+# Provides: orientation (roll, pitch) from accelerometer / gravity vector.
+# Desensitized: vroll, vpitch, vyaw (angular velocity gyro) set to false
+# to eliminate gyro drift and prevent phantom self-rotation when stationary!
+# ---------------------------------------------------------------------------
+imu0: /mavros/imu/data
+imu0_config: [false, false, false,   # x, y, z  position      → ignore
+              true,  true,  false,   # roll, pitch, yaw        → Roll & Pitch only (absolute gravity tilt)
+              false, false, false,   # vx, vy, vz              → ignore
+              false, false, false,   # vroll, vpitch, vyaw     → FALSE to avoid gyro drift & twitching!
+              false, false, false]   # ax, ay, az              → ignore (too noisy for mapping)
+imu0_differential: false
+imu0_relative: false
+imu0_queue_size: 10
+imu0_remove_gravitational_acceleration: true
+imu0_nodelay: false
+
+# ---------------------------------------------------------------------------
+# Sensor 1: Bar30 Depth Sensor → PoseWithCovarianceStamped (/bar30/pose_depth)
+# Provides: absolute Z position (hydrostatic, high accuracy ±2mm)
+# This is the ONLY absolute position fix we have underwater (no GPS).
+# ---------------------------------------------------------------------------
+pose0: /bar30/pose_depth
+pose0_config: [false, false, true,   # x, y, z  position      → only Z
+               false, false, false,  # roll, pitch, yaw        → ignore
+               false, false, false,  # vx, vy, vz              → ignore
+               false, false, false,  # vroll, vpitch, vyaw     → ignore
+               false, false, false]  # ax, ay, az              → ignore
+pose0_differential: false
+pose0_relative: false
+pose0_queue_size: 5
+pose0_rejection_threshold: 2.0      # Mahalanobis gate (sigma): reject outlier depth jumps
+
+# ---------------------------------------------------------------------------
+# Sensor 2: RTAB-Map Visual Odometry (/rtabmap/odom)
+# Provides: incremental X, Y, Z + velocities from visual SLAM
+# Used as relative motion estimate; corrected by Bar30 on Z.
+# ---------------------------------------------------------------------------
+odom0: /rtabmap/odom
+odom0_config: [true,  true,  true,   # x, y, z  position      → use all
+               false, false, true,   # roll, pitch, yaw        → only yaw (visual heading)
+               true,  true,  true,   # vx, vy, vz              → use all
+               false, false, true,   # vroll, vpitch, vyaw     → only yaw rate
+               false, false, false]  # ax, ay, az              → ignore
+odom0_differential: false
+odom0_relative: false
+odom0_queue_size: 10
+odom0_rejection_threshold: 5.0
+
+# Process noise covariance (Q matrix diagonals)
+# Tuned for high stability and zero phantom motion when stationary
+process_noise_covariance: [0.01, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0.01, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0.01, 0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0.005,0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0.005,0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0.01, 0,    0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0.01, 0,    0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0.01, 0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0.01, 0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0.005,0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0.005,0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0.01, 0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0.005,0,    0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0.005,0,
+                           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0.005]

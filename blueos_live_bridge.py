@@ -45,6 +45,7 @@ def main():
     
     rate = rospy.Rate(rate_hz)
     loop_count = 0
+    last_roll, last_pitch, last_yaw = None, None, None
     
     while not rospy.is_shutdown():
         now = rospy.Time.now()
@@ -54,16 +55,38 @@ def main():
         try:
             req = urllib.request.urlopen(f"{base_url_comp1}/ATTITUDE", timeout=0.1)
             att = json.loads(req.read().decode())["message"]
-            roll = att["roll"]
-            pitch = att["pitch"]
-            yaw = att["yaw"]
+            raw_roll = float(att["roll"])
+            raw_pitch = float(att["pitch"])
+            raw_yaw = float(att["yaw"])
+
+            # Orientation Deadband Filter: suppress resting jitter < 0.015 rad (~0.85 deg)
+            if last_roll is not None:
+                if (abs(raw_roll - last_roll) < 0.015 and 
+                    abs(raw_pitch - last_pitch) < 0.015 and 
+                    abs(raw_yaw - last_yaw) < 0.015):
+                    roll, pitch, yaw = last_roll, last_pitch, last_yaw
+                else:
+                    roll, pitch, yaw = raw_roll, raw_pitch, raw_yaw
+                    last_roll, last_pitch, last_yaw = roll, pitch, yaw
+            else:
+                roll, pitch, yaw = raw_roll, raw_pitch, raw_yaw
+                last_roll, last_pitch, last_yaw = roll, pitch, yaw
+
             qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
+
+            # Angular Velocity Deadband: clamp resting gyro micro-noise (< 0.025 rad/s ~ 1.5 deg/s) to zero
+            rollspeed = float(att.get("rollspeed", 0.0))
+            pitchspeed = float(att.get("pitchspeed", 0.0))
+            yawspeed = float(att.get("yawspeed", 0.0))
+            if abs(rollspeed) < 0.025: rollspeed = 0.0
+            if abs(pitchspeed) < 0.025: pitchspeed = 0.0
+            if abs(yawspeed) < 0.025: yawspeed = 0.0
 
             # RAW_IMU (optional for accel/gyro)
             req_imu = urllib.request.urlopen(f"{base_url_comp1}/RAW_IMU", timeout=0.1)
             raw_imu = json.loads(req_imu.read().decode())["message"]
             
-            # Publish Imu Message
+            # Publish Imu Message with desensitized realistic covariances
             imu_msg = Imu()
             imu_msg.header.stamp = now
             imu_msg.header.frame_id = "base_imu_link"
@@ -71,12 +94,21 @@ def main():
             imu_msg.orientation.y = qy
             imu_msg.orientation.z = qz
             imu_msg.orientation.w = qw
-            imu_msg.angular_velocity.x = att.get("rollspeed", 0.0)
-            imu_msg.angular_velocity.y = att.get("pitchspeed", 0.0)
-            imu_msg.angular_velocity.z = att.get("yawspeed", 0.0)
+            imu_msg.orientation_covariance = [0.02, 0.0, 0.0,
+                                              0.0, 0.02, 0.0,
+                                              0.0, 0.0, 0.05]
+            imu_msg.angular_velocity.x = rollspeed
+            imu_msg.angular_velocity.y = pitchspeed
+            imu_msg.angular_velocity.z = yawspeed
+            imu_msg.angular_velocity_covariance = [0.05, 0.0, 0.0,
+                                                   0.0, 0.05, 0.0,
+                                                   0.0, 0.0, 0.05]
             imu_msg.linear_acceleration.x = raw_imu.get("xacc", 0) * 9.80665 / 1000.0
             imu_msg.linear_acceleration.y = raw_imu.get("yacc", 0) * 9.80665 / 1000.0
             imu_msg.linear_acceleration.z = raw_imu.get("zacc", -1000) * 9.80665 / 1000.0
+            imu_msg.linear_acceleration_covariance = [0.2, 0.0, 0.0,
+                                                      0.0, 0.2, 0.0,
+                                                      0.0, 0.0, 0.2]
             imu_pub.publish(imu_msg)
             imu_pub_std.publish(imu_msg)
 

@@ -1,12 +1,15 @@
 <?xml version="1.0"?>
 <!--
-  live_rov_3d_mapping.launch — BlueROV2 Live 3D Mapping (Anti-Spinning & Continuous Map History)
-  =============================================================================================
+  live_rov_3d_mapping.launch — BlueROV2 Live 3D Mapping (Anti-Jitter & Stabilized Odometry)
+  ========================================================================================
   1. AI Monocular Depth (MiDaS ONNX): publishes dense per-frame PointCloud2
-  2. 3D-to-3D Visual Odometry (SVD rigid transform, NO PnP planar ambiguity):
-     - Vis/EstimationType = 0 (3D->3D): Menghentikan rotasi semu / muter-muter
-     - Odom/GuessMotion = false: Menghentikan feedback loop rotasi runaway
-  3. Continuous Map History: LinearUpdate=0.06m, AngularUpdate=0.15rad
+  2. Stabilized Visual Odometry with Kalman Filter:
+     - Odom/FilteringStrategy = 1 (Kalman filter: menstabilkan getaran/noise sensor)
+     - Odom/GuessMotion = false (memutus loop putaran/muter-muter)
+     - Odom/ResetCountdown = 0 (mencegah lonjakan/teleportasi tiba-tiba)
+  3. Anti-Jitter Deadband:
+     - RGBD/LinearUpdate = 0.08m (8 cm)
+     - RGBD/AngularUpdate = 0.15 rad (8.5 derajat)
   4. Clean Trajectory Tracker: /robot_path (neon green) & /rov/model_marker (red 3D body)
   5. RViz: PointCloud2 + MapCloud (History) + Trajectory + ROV Body + Pitch Black BG
 -->
@@ -57,7 +60,7 @@
   <!-- 5. RTAB-Map Visual Odometry & Dense 3D Mapping -->
   <group ns="rtabmap">
 
-    <!-- Visual Odometry: 3D-to-3D SVD Rigid Estimation (ANTI-SPINNING) -->
+    <!-- Visual Odometry: Kalman-Filtered Frame-to-Map (ANTI GERAK-GERAK SENDIRI) -->
     <node pkg="rtabmap_odom" type="rgbd_odometry" name="rgbd_odometry" output="screen">
       <param name="frame_id"                    type="string" value="base_link"/>
       <param name="odom_frame_id"               type="string" value="odom"/>
@@ -75,21 +78,26 @@
       <!-- Strategy: Frame-to-Map -->
       <param name="Odom/Strategy"               type="string" value="0"/>
       <param name="Odom/Holonomic"              type="string" value="true"/>
-      <!-- MATIKAN GuessMotion agar tidak ada feedback loop rotasi runaway (muter-muter) -->
+      
+      <!-- KALMAN FILTER: Meredam getaran sensor sehingga diam tidak gerak-gerak sendiri -->
+      <param name="Odom/FilteringStrategy"      type="string" value="1"/>
+      <param name="Odom/KalmanMeasurementNoise" type="string" value="0.03"/>
+      <param name="Odom/KalmanProcessNoise"     type="string" value="0.002"/>
+
+      <!-- Matikan GuessMotion agar tidak ada feedback loop rotasi runaway (muter-muter) -->
       <param name="Odom/GuessMotion"            type="string" value="false"/>
       <param name="Odom/ResetCountdown"         type="string" value="0"/>
       <param name="Odom/KeyFrameThr"            type="string" value="0.4"/>
 
-      <!-- KUNCI ANTI MUTER-MUTER: Vis/EstimationType = 0 (3D->3D SVD Rigid Transform) -->
-      <!-- Menghilangkan ambiguitas planar PnP yang salah mengartikan gerak maju sebagai rotasi -->
-      <param name="Vis/EstimationType"          type="string" value="0"/>
-      <param name="Vis/InlierDistance"          type="string" value="0.08"/>
-      <param name="Vis/RefineIterations"        type="string" value="5"/>
+      <!-- PnP Motion Estimation (Stabil, toleran variasi monocular MiDaS) -->
+      <param name="Vis/EstimationType"          type="string" value="1"/>
+      <param name="Vis/PnPReprojError"          type="string" value="4.0"/>
+      <param name="Vis/PnPFlags"                type="string" value="0"/>
 
       <!-- ORB Features -->
       <param name="Vis/FeatureType"             type="string" value="8"/>
       <param name="Vis/MaxFeatures"             type="string" value="1000"/>
-      <param name="Vis/MinInliers"              type="string" value="10"/>
+      <param name="Vis/MinInliers"              type="string" value="6"/>
       <param name="Vis/CorType"                 type="string" value="0"/>
       <param name="Vis/MaxDepth"                type="string" value="4.0"/>
       <param name="Vis/MinDepth"                type="string" value="0.25"/>
@@ -121,7 +129,7 @@
       <param name="Kp/MaxFeatures"              type="string" value="800"/>
       <param name="Vis/FeatureType"             type="string" value="8"/>
       <param name="Vis/MaxFeatures"             type="string" value="800"/>
-      <param name="Vis/MinInliers"              type="string" value="10"/>
+      <param name="Vis/MinInliers"              type="string" value="6"/>
 
       <!-- SLAM Rate -->
       <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
@@ -136,8 +144,8 @@
       <param name="Grid/VoxelSize"              type="double" value="0.03"/>
       <param name="cloud_voxel_size"            type="double" value="0.03"/>
 
-      <!-- KEYFRAME THRESHOLD: Rekam jika gerak maju nyata 6cm, abaikan jitter rotasi kecil (< 8.5 deg) -->
-      <param name="RGBD/LinearUpdate"           type="string" value="0.06"/>
+      <!-- KEYFRAME THRESHOLD: Deadband 8cm dan 8.5 derajat untuk abaikan getaran diam -->
+      <param name="RGBD/LinearUpdate"           type="string" value="0.08"/>
       <param name="RGBD/AngularUpdate"          type="string" value="0.15"/>
       <param name="RGBD/OptimizeFromGraphEnd"   type="string" value="false"/>
 
@@ -159,7 +167,7 @@
   <!-- 6. ROV Trajectory Tracker (jalur hijau /robot_path & body marker merah di RViz) -->
   <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py" name="rov_trajectory_tracker" output="screen">
     <param name="max_path_length" value="10000" />
-    <param name="min_step_m" value="0.02" />
+    <param name="min_step_m" value="0.04" />
   </node>
 
   <!-- 7. RViz 3D Visualizer -->

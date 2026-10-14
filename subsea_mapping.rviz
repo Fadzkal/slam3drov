@@ -78,17 +78,17 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # 3. TF Frames (base_link, camera_link, odom, map)
+    # 3. TF Frames (Disabled by default to avoid visual clutter)
     # -----------------------------------------------------------------------
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
         base_link:
-          Value: true
+          Value: false
         camera_link:
-          Value: true
+          Value: false
         camera_optical_link:
           Value: false
         ping1d_sonar_link:
@@ -96,16 +96,16 @@ Visualization Manager:
         bar30_depth_link:
           Value: false
         odom:
-          Value: true
+          Value: false
         map:
-          Value: true
-      Marker Scale: 0.4
+          Value: false
+      Marker Scale: 0.2
       Name: TF
       Show Arrows: false
-      Show Axes: true
-      Show Names: true
+      Show Axes: false
+      Show Names: false
       Update Interval: 0
-      Value: true
+      Value: false
 
     # -----------------------------------------------------------------------
     # 4. Live Camera ROV Feed

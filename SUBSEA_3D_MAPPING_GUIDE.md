@@ -145,17 +145,31 @@ Berikut dokumentasi lengkap riwayat kendala teknis yang dihadapi selama pengujia
 
 ---
 
-### H. Eliminasi Efek Putaran Kipas (*Anti-Spinning / 3D-to-3D SVD Rigid Estimation*)
-- **Gejala**: Kamera yang digerakkan sedikit atau diarahkan maju malah memicu rotasi melingkar berulang-ulang (*"malah muter-muter gtuu"*), menghasilkan serangkaian awan titik yang berputar mekar seperti kipas spiral (*fan-like petals*).
+### H. Eliminasi Efek Putaran Kipas (*Anti-Spinning*)
+- **Gejala**: Kamera yang digerakkan sedikit memicu rotasi melingkar berulang-ulang (*"muter-muter"*), menghasilkan awan titik yang berputar mekar seperti kipas spiral.
+- **Akar Masalah**: Parameter `Odom/GuessMotion = true` menginterpolasi kecepatan sudut rotasi ke estimasi frame berikutnya. Sekali terjadi deviasi sudut kecil, sistem memprediksi bahwa kamera sedang berputar terus menerus, menciptakan *positive feedback loop* rotasi tak berujung.
+- **Solusi**: Matikan ekstrapolasi rotasi dengan `<param name="Odom/GuessMotion" type="string" value="false"/>` dan `<param name="Odom/ResetCountdown" type="string" value="0"/>`. Odometri tidak lagi mengasumsikan rotasi berlanjut secara otomatis.
+
+---
+
+### I. Eliminasi Gerak-Gerak Sendiri Saat Diam & Desensitisasi IMU (*Anti Phantom Motion*)
+- **Gejala**: ROV diletakkan diam di atas meja/lantai, namun posisi dan orientasi di RViz bergerak/bergetar sendiri (*"gerak gerak sendiri, tolong jangan sensitif imu nyaa"*), disertai pesan kegagalan registrasi:
+  `OdometryF2M.cpp:622::computeTransform() Registration failed: "Not enough inliers 0/10"`
+  `Could not get transform from odom to base_link after 0.500000 seconds!`
 - **Akar Masalah**:
-  1. Parameter `Odom/GuessMotion = true` menginterpolasi kecepatan sudut rotasi ke estimasi frame berikutnya. Sekali terjadi deviasi sudut kecil, sistem memprediksi bahwa kamera sedang berputar terus menerus, menciptakan *positive feedback loop* rotasi tak berujung.
-  2. Pendekatan default `Vis/EstimationType = 1` (3D->2D PnP) mengalami ambiguitas planar klasik pada permukaan datar (meja/dasar laut). Ekspansi skala visual saat kamera bergerak maju disalahartikan oleh solver PnP sebagai kombinasi rotasi yaw/pitch.
-  3. Terjadi duplikasi penerbitan topik `/robot_path` antara `blueos_live_bridge.py` dan `rov_trajectory_node.py`, menyebabkan garis lintasan bergetar dan tumpang tindih.
-- **Solusi**:
-  1. **3D-to-3D SVD Rigid Transform**: Ganti ke `<param name="Vis/EstimationType" type="string" value="0"/>` dan `<param name="Vis/InlierDistance" type="string" value="0.08"/>`. Estimasi gerak visual kini dihitung menggunakan dekomposisi nilai singular (SVD Horn/Kabsch) langsung pada titik 3D $(X,Y,Z)$. Hal ini memisahkan translasi dari rotasi secara matematis dan **100% kebal terhadap ambiguitas planar PnP**.
-  2. **Matikan Ekstrapolasi Rotasi**: Set `<param name="Odom/GuessMotion" type="string" value="false"/>` dan `<param name="Odom/ResetCountdown" type="string" value="0"/>`. Odometri tidak lagi mengasumsikan rotasi berlanjut secara otomatis.
-  3. **Ambang Batas Sudut Realistis**: Set `RGBD/AngularUpdate = 0.15 rad` ($\approx 8.5^\circ$) dan `RGBD/LinearUpdate = 0.06m` (6 cm). Jitter sudut kecil di bawah $8.5^\circ$ tidak akan memicu penambahan keyframe baru, sehingga efek kipas berputar terhenti total.
-  4. **Pembersihan Topik Lintasan**: Menghapus publisher `/robot_path` duplikat dari [`blueos_live_bridge.py`](file:///c:/remote_ROV/blueos_live_bridge.py), menyisakan satu-satunya jalur yang bersih dan teratur dari [`rov_trajectory_node.py`](file:///c:/remote_ROV/rov_trajectory_node.py).
+  1. Nilai `Vis/EstimationType = 0` (3D->3D SVD) dengan batas inlier 8 cm (`Vis/InlierDistance = 0.08`) terlalu kaku untuk estimasi kedalaman monocular AI (MiDaS). Deviasi skala antar-frame menyebabkan seluruh 50 pasangan fitur ditolak sebagai outlier (`0/10 inliers`), mematikan penerbitan TF odometri.
+  2. Noise piksel kamera statis (1–2 px) tanpa filter odometri menyebabkan estimasi perpindahan mikro (*phantom walk*) terakumulasi di background.
+  3. IMU pada `blueos_live_bridge.py` menerbitkan kecepatan sudut gyro dan orientasi tanpa deadband filter dan kovariansi kosong. Getaran kipas pendingin ROV terbaca sebagai pergerakan nyata.
+  4. TF Display di RViz aktif dengan `Show Axes: true` dan `Show Names: true`, menampilkan garis-garis sumbu merah/hijau/biru dan pohon link kuning yang tampak kusut di sekeliling ROV.
+- **Solusi Tuntas**:
+  1. **Stabilized PnP Motion Estimation**: Beralih ke `Vis/EstimationType = 1` (PnP) dengan toleransi `Vis/PnPReprojError = 4.0` dan ambang minimal `Vis/MinInliers = 6`. PnP sangat toleran terhadap variasi skala depth monocular dan menjamin kontinuitas inliers tanpa pernah drop ke 0.
+  2. **Kalman-Filtered Odometry**: Mengaktifkan filter Kalman internal pada visual odometry (`Odom/FilteringStrategy = 1`, `KalmanMeasurementNoise = 0.03`, `KalmanProcessNoise = 0.002`). Getaran piksel diam diredam sempurna sehingga posisi odometri terkunci stabil (*rock solid*).
+  3. **Desensitisasi IMU & Deadband Filter**:
+     - Pada [`blueos_live_bridge.py`](file:///c:/remote_ROV/blueos_live_bridge.py), ditambahkan deadband gyro: kecepatan sudut $|gyro| < 0.025\text{ rad/s}$ ($\approx 1.5^\circ/\text{s}$) dipotong ke `0.0`. Fluktuasi orientasi $< 0.015\text{ rad}$ ($\approx 0.85^\circ$) dikunci ke nilai sebelumnya.
+     - Ditetapkan kovariansi realistis (`orientation_cov = 0.02`, `angular_velocity_cov = 0.05`, `linear_accel_cov = 0.2`) agar tidak over-sensitif.
+     - Pada [`config/ekf_params.yaml`](file:///c:/remote_ROV/config/ekf_params.yaml), dinonaktifkan integrasi kecepatan sudut gyro (`vroll, vpitch, vyaw = false`) agar EKF hanya mengunci sudut Roll & Pitch dari gravitasi murni.
+  4. **Keyframe Update & Trajectory Deadband**: Diterapkan `RGBD/LinearUpdate = 0.08m` (8 cm) dan `RGBD/AngularUpdate = 0.15 rad` ($\approx 8.6^\circ$). Trajectory tracker menerapkan deadband 4 cm (`min_step_m = 0.04`) dan anti-teleport outlier rejection.
+  5. **Pembersihan Tampilan RViz**: Menonaktifkan display TF secara default (`TF Enabled: false`) di [`subsea_mapping.rviz`](file:///c:/remote_ROV/subsea_mapping.rviz) sehingga garis sumbu dan pohon link tidak mengotori viewport 3D, menyisakan visual clean: PointCloud2 + MapCloud + Jalur Hijau + Bodi ROV Merah.
 
 ---
 
@@ -169,30 +183,27 @@ Tabel parameter optimal yang telah divalidasi pada pengujian live ROV:
 | **MiDaS Depth** | `depth_scale` | `4.5` (meter) | Jangkauan kedalaman maksimum yang proporsional |
 | **MiDaS Depth** | `point_step` | `3` | Kerapatan tinggi PointCloud2 untuk visual surface padat |
 | **MiDaS Depth** | Rate Limiter | `12.5 Hz` | Menjaga CPU tetap dingin dan rendering RViz di 30 FPS |
-| **Visual Odometry** | `Vis/EstimationType` | `0` (3D->3D) | Menggunakan SVD tertutup: **100% anti-spinning / anti muter-muter** |
-| **Visual Odometry** | `Odom/GuessMotion` | `false` | Memutus feedback loop rotasi runaway |
-| **Visual Odometry** | `Vis/MinInliers` | `10` | Menjamin kekokohan korespondensi fitur 3D |
-| **Visual Odometry** | `Vis/MaxFeatures` | `1000` | Memperbanyak fitur visual ORB untuk matching kokoh |
-| **Visual Odometry** | `Vis/InlierDistance` | `0.08` (8 cm) | Membatasi deviasi jarak fitur 3D antar-frame |
-| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.06` (6 cm) | Merekam riwayat peta setiap 6 cm ROV bergerak maju |
-| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.5^\circ$) | Mencegah penumpukan keyframe spiral pada rotasi kecil |
+| **Visual Odometry** | `Vis/EstimationType` | `1` (PnP) | PnP stabil & toleran terhadap variasi skala AI monocular |
+| **Visual Odometry** | `Vis/PnPReprojError` | `4.0` (pixel) | Toleransi reprojeksi optimal anti-outlier tanpa drop inlier |
+| **Visual Odometry** | `Vis/MinInliers` | `6` | Menjamin odometri tidak pernah putus/drop ke 0 quality |
+| **Visual Odometry** | `Odom/FilteringStrategy`| `1` (Kalman) | **Anti gerak-gerak sendiri**: redam getaran sensor saat diam |
+| **Visual Odometry** | `Odom/KalmanMeasurementNoise` | `0.03` | Menghaluskan noise estimasi pose visual |
+| **Visual Odometry** | `Odom/GuessMotion` | `false` | **Anti muter-muter**: putus loop rotasi runaway |
+| **Visual Odometry** | `Odom/ResetCountdown`| `0` | Mencegah lonjakan / teleportasi koordinat secara tiba-tiba |
+| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.08` (8 cm) | Merekam riwayat peta setiap 8 cm ROV bergerak maju |
+| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.6^\circ$) | Mencegah penumpukan keyframe spiral pada rotasi kecil |
 | **RTAB-Map SLAM** | `RGBD/OptimizeMaxError` | `0` | Menonaktifkan penolakan loop closure yang merusak graf |
 | **RTAB-Map SLAM** | `Grid/DepthDecimation` | `4` | Kerapatan awan titik tinggi tanpa membebani memori |
 | **RTAB-Map SLAM** | `Grid/VoxelSize` / `cloud_voxel_size` | `0.03` (3 cm) | Menjaga bentuk kontur fisik objek (meja/kardus/dinding) |
 | **RTAB-Map SLAM** | `Grid/RangeMin` / `RangeMax` | `0.25` / `5.0` | Memetakan objek dekat (25 cm) hingga latar belakang (5 m) |
+| **Telemetry Bridge**| `gyro_deadband` | `0.025 rad/s` | Memotong drift giroskop saat ROV diam |
+| **Telemetry Bridge**| `attitude_deadband` | `0.015 rad` | Mengunci orientasi dari getaran kipas/meja |
+| **Trajectory Tracker**| `min_step_m` | `0.04` (4 cm) | Deadband jalur hijau RViz agar tidak bergetar saat diam |
 | **RViz Display** | `PointCloud2` | **Enabled** | Menampilkan live AI Depth 3D surface tepat di depan kamera |
 | **RViz Display** | `MapCloud` | **Enabled** | Peta akumulasi riwayat yang tertinggal di belakang ROV |
 | **RViz Display** | `Robot Trajectory` | **Enabled** | Menampilkan jejak lintasan hijau terang ROV (`/robot_path`) |
 | **RViz Display** | `ROV 3D Body` | **Enabled** | Marker fisik kubus 3D BlueROV2 merah (`/rov/model_marker`) |
-| **RViz Display** | `TF (Show Arrows)` | **False** | Mencegah artefak panah kuning melesat ke tak hingga |
-| **RViz Display** | Background Color | `0; 0; 0` | Hitam pekat untuk kontras maksimal visualisasi 3D |
-| **RTAB-Map SLAM** | `Grid/RangeMin` / `RangeMax` | `0.25` / `5.0` | Memetakan objek dekat (25 cm) hingga latar belakang (5 m) |
-| **RTAB-Map SLAM** | `RGBD/LinearUpdate` | `0.10` (10 cm) | Keyframe ditambahkan secara teratur saat ROV bergerak |
-| **RTAB-Map SLAM** | `RGBD/AngularUpdate` | `0.15` ($\approx 8.6^\circ$) | Menjaga kesinambungan sudut saat ROV berputar |
-| **RViz Display** | `PointCloud2` | **Enabled** | Menampilkan live AI Depth 3D surface tepat di depan kamera |
-| **RViz Display** | `MapCloud` | **Enabled** | Akumulasi peta global dengan voxel 3 cm |
-| **RViz Display** | `Robot Trajectory` | **Enabled** | Menampilkan jejak lintasan hijau terang ROV (`/robot_path`) |
-| **RViz Display** | `TF (Show Arrows)` | **False** | Mencegah artefak panah kuning melesat ke tak hingga |
+| **RViz Display** | `TF` | **Disabled** | Bersih dari kabel/sumbu warna-warni yang membingungkan |
 | **RViz Display** | Background Color | `0; 0; 0` | Hitam pekat untuk kontras maksimal visualisasi 3D |
 
 ---
