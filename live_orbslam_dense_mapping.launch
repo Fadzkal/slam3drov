@@ -84,10 +84,17 @@
       <param name="Rtabmap/DetectionRate"       type="string" value="2.0"/>
       <param name="RGBD/LinearUpdate"           type="string" value="0.05"/> <!-- Update setiap gerak 5 cm -->
       <param name="RGBD/AngularUpdate"          type="string" value="0.08"/> <!-- Update setiap putar ~4.5 derajat -->
+      <param name="Grid/FromDepth"              type="string" value="true"/>
+      <param name="Grid/Sensor"                 type="string" value="1"/> <!-- 1 = RGB-D Depth -->
       <param name="Grid/RangeMax"               type="string" value="5.0"/>
+      <param name="Grid/RangeMin"               type="string" value="0.25"/>
+      <param name="Grid/DepthDecimation"        type="int"    value="4"/>
       <param name="Grid/CellSize"               type="string" value="0.02"/> <!-- Resolusi Voxel 2 cm -->
+      <param name="Grid/VoxelSize"              type="double" value="0.03"/>
+      <param name="cloud_voxel_size"            type="double" value="0.03"/>
       <param name="Grid/RayTracing"             type="string" value="true"/>
       <param name="Mem/IncrementalMemory"       type="string" value="true"/>
+      <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
     </node>
   </group>
 

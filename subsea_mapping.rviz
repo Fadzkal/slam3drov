@@ -68,9 +68,9 @@ Visualization Manager:
       Position Transformer: XYZ
       Queue Size: 5
       Selectable: true
-      Size (Pixels): 2
-      Size (m): 0.008
-      Style: Points
+      Size (Pixels): 4
+      Size (m): 0.025
+      Style: Flat Squares
       Topic: /camera/depth/points
       Unreliable: false
       Use Fixed Frame: true
@@ -296,7 +296,7 @@ Visualization Manager:
   Global Options:
     Background Color: 0; 0; 0
     Default Light: true
-    Fixed Frame: map
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:

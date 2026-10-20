@@ -64,19 +64,48 @@ public:
         ROS_INFO("  Frame IDs     : %s -> %s", strOdomFrame_.c_str(), strChildFrame_.c_str());
         ROS_INFO("==========================================================");
 
-        // 2. Inisialisasi Sistem Inti ORB-SLAM3
+        // 2. Load Camera Intrinsics from YAML Settings
+        fx_ = 520.0f; fy_ = 520.0f; cx_ = 320.0f; cy_ = 240.0f;
+        try
+        {
+            cv::FileStorage fSettings(strSettingsFile_, cv::FileStorage::READ);
+            if (fSettings.isOpened())
+            {
+                cv::FileNode nFx = fSettings["Camera.fx"];
+                if (nFx.empty()) nFx = fSettings["Camera1.fx"];
+                if (!nFx.empty()) fx_ = (float)nFx;
+
+                cv::FileNode nFy = fSettings["Camera.fy"];
+                if (nFy.empty()) nFy = fSettings["Camera1.fy"];
+                if (!nFy.empty()) fy_ = (float)nFy;
+
+                cv::FileNode nCx = fSettings["Camera.cx"];
+                if (nCx.empty()) nCx = fSettings["Camera1.cx"];
+                if (!nCx.empty()) cx_ = (float)nCx;
+
+                cv::FileNode nCy = fSettings["Camera.cy"];
+                if (nCy.empty()) nCy = fSettings["Camera1.cy"];
+                if (!nCy.empty()) cy_ = (float)nCy;
+
+                fSettings.release();
+            }
+        }
+        catch (...) {}
+        ROS_INFO("  Camera Intrinsics: fx=%.1f, fy=%.1f, cx=%.1f, cy=%.1f", fx_, fy_, cx_, cy_);
+
+        // 3. Inisialisasi Sistem Inti ORB-SLAM3
         mpSLAM = make_shared<ORB_SLAM3::System>(
             strVocFile_, strSettingsFile_,
             ORB_SLAM3::System::MONOCULAR, bUsePangolin_
         );
         imageScale_ = mpSLAM->GetImageScale();
 
-        // 3. Setup Publishers
+        // 4. Setup Publishers
         odomPub_ = nh_.advertise<nav_msgs::Odometry>(strOdomTopic_, 10);
         posePub_ = nh_.advertise<geometry_msgs::PoseStamped>("/orb_slam3/camera_pose", 10);
         statusPub_ = nh_.advertise<std_msgs::String>("/orb_slam3/status", 5);
 
-        // 4. Mode Operasi: Langsung Buka Kamera atau Subscribe ROS Topic
+        // 5. Mode Operasi: Langsung Buka Kamera atau Subscribe ROS Topic
         if (!strCameraSource_.empty())
         {
             ROS_INFO("[INFO] Membuka kamera langsung dari: %s", strCameraSource_.c_str());
@@ -279,11 +308,30 @@ private:
             imgMsg->header.frame_id = strChildFrame_;
             imagePub_.publish(imgMsg);
 
-            // 2. Publikasikan CameraInfo
+            // 2. Publikasikan CameraInfo dengan intrinsik kalibrasi nyata
             sensor_msgs::CameraInfo infoMsg;
             infoMsg.header = imgMsg->header;
             infoMsg.width = frame.cols;
             infoMsg.height = frame.rows;
+            infoMsg.distortion_model = "plumb_bob";
+            infoMsg.D.assign(5, 0.0);
+
+            // Matriks K (3x3)
+            infoMsg.K.assign(0.0);
+            infoMsg.K[0] = fx_;
+            infoMsg.K[2] = cx_;
+            infoMsg.K[4] = fy_;
+            infoMsg.K[5] = cy_;
+            infoMsg.K[8] = 1.0;
+
+            // Matriks P (3x4)
+            infoMsg.P.assign(0.0);
+            infoMsg.P[0] = fx_;
+            infoMsg.P[2] = cx_;
+            infoMsg.P[5] = fy_;
+            infoMsg.P[6] = cy_;
+            infoMsg.P[10] = 1.0;
+
             camInfoPub_.publish(infoMsg);
 
             // 3. Olah di ORB-SLAM3 dan publikasikan Odometry
@@ -304,6 +352,8 @@ private:
     ros::Publisher statusPub_;
     ros::Publisher camInfoPub_;
     tf2_ros::TransformBroadcaster tfBroadcaster_;
+
+    float fx_, fy_, cx_, cy_;
 
     shared_ptr<ORB_SLAM3::System> mpSLAM;
     float imageScale_;

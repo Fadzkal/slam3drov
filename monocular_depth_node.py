@@ -154,7 +154,13 @@ class MonocularDepthNode:
         self.synced_rgb_pub.publish(msg)
         
         # Publish synchronized CameraInfo
-        if self.last_info is not None:
+        has_valid_info = (
+            self.last_info is not None and
+            len(self.last_info.K) == 9 and
+            self.last_info.K[0] > 10.0 and
+            self.last_info.K[4] > 10.0
+        )
+        if has_valid_info:
             orig_w = self.last_info.width if self.last_info.width > 0 else w
             orig_h = self.last_info.height if self.last_info.height > 0 else h
             scale_x = w / float(orig_w)
@@ -169,11 +175,10 @@ class MonocularDepthNode:
             info.D = list(self.last_info.D)
             
             K = list(self.last_info.K)
-            if len(K) == 9:
-                K[0] *= scale_x
-                K[2] *= scale_x
-                K[4] *= scale_y
-                K[5] *= scale_y
+            K[0] *= scale_x
+            K[2] *= scale_x
+            K[4] *= scale_y
+            K[5] *= scale_y
             info.K = K
             
             P = list(self.last_info.P)
@@ -185,30 +190,32 @@ class MonocularDepthNode:
             info.P = P
             self.synced_info_pub.publish(info)
             
-            fx = K[0]
-            cx = K[2]
-            fy = K[4]
-            cy = K[5]
+            fx = max(float(K[0]), 10.0)
+            cx = float(K[2])
+            fy = max(float(K[4]), 10.0)
+            cy = float(K[5])
         else:
             info = CameraInfo()
             info.header.stamp = now
             info.header.frame_id = msg.header.frame_id
             info.width = w
             info.height = h
-            fx = 1000.0 * (w / 1920.0)
-            fy = 1000.0 * (h / 1080.0)
+            fx = 520.0 * (w / 640.0)
+            fy = 520.0 * (h / 480.0)
             cx = w / 2.0
             cy = h / 2.0
+            info.distortion_model = "plumb_bob"
+            info.D = [0.0, 0.0, 0.0, 0.0, 0.0]
             info.K = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
             info.P = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
             self.synced_info_pub.publish(info)
         
-        # Always publish dense per-frame PointCloud2 for real-time 3D surface visualization (like video reference)
+        # Always publish dense per-frame PointCloud2 for real-time 3D surface visualization
         step = max(1, int(self.step))
         u_coords, v_coords = np.meshgrid(np.arange(0, w, step), np.arange(0, h, step))
-        Z = depth_metric_resized[v_coords, u_coords]
-        X = (u_coords - cx) * Z / fx
-        Y = (v_coords - cy) * Z / fy
+        Z = depth_metric_resized[v_coords, u_coords].astype(np.float32)
+        X = ((u_coords - cx) * Z / fx).astype(np.float32)
+        Y = ((v_coords - cy) * Z / fy).astype(np.float32)
         
         rgb_down = cv_img[v_coords, u_coords]
         r = rgb_down[:, :, 2].astype(np.uint32)
@@ -217,7 +224,15 @@ class MonocularDepthNode:
         rgb_packed = (r << 16) | (g << 8) | b
         rgb_float = np.frombuffer(rgb_packed.tobytes(), dtype=np.float32).reshape(X.shape)
         
-        points = np.stack([X, Y, Z, rgb_float], axis=-1).reshape(-1, 4)
+        # Filter NaN, Inf, and out-of-range points to ensure RViz renders clean 3D solid surface
+        valid_mask = (Z > 0.15) & (Z < 10.0) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z)
+        
+        X_val = X[valid_mask]
+        Y_val = Y[valid_mask]
+        Z_val = Z[valid_mask]
+        rgb_val = rgb_float[valid_mask]
+        
+        points = np.stack([X_val, Y_val, Z_val, rgb_val], axis=-1)
         
         fields = [
             PointField('x', 0, PointField.FLOAT32, 1),
