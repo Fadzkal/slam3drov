@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 generate_thesis_markdown.py
-Generates the complete, rigorous markdown thesis corresponding to TUGAS_AKHIR_FADZKAL_LUTHFI_MAYZANIO.docx
+Generates the complete, rigorous markdown thesis with all 12 embedded figures
+and extensive discussion on 3D Mapping for Fadzkal Luthfi Mayzanio.
 """
 
-content = """# RANCANG BANGUN SISTEM FUSI DENSE NEURAL-SLAM: INTEGRASI PELACAKAN 6-DOF ORB-SLAM3, ESTIMASI KEDALAMAN AI MONOKULER, DAN RTAB-MAP DENGAN ESTIMASI PERMUKAAN 2.5D PADA REMOTELY OPERATED VEHICLE (ROV)
+md_content = """# RANCANG BANGUN SISTEM FUSI DENSE NEURAL-SLAM: INTEGRASI PELACAKAN 6-DOF ORB-SLAM3, ESTIMASI KEDALAMAN AI MONOKULER, DAN RTAB-MAP DENGAN ESTIMASI PERMUKAAN 2.5D PADA REMOTELY OPERATED VEHICLE (ROV)
 
 **Tugas Akhir**  
 *Disusun sebagai salah satu syarat untuk menyelesaikan pendidikan Sarjana Terapan Diploma IV*
@@ -60,7 +61,7 @@ Menyatakan bahwa:
 
 Bandung, 27 Juli 2026  
 Yang Menyatakan,  
-**Fadzkal Luthfi Mayzanio**
+**Fadzkal Luthfi Mayzanio** (NIM 223443033)
 
 ---
 
@@ -72,42 +73,42 @@ Menyatakan/menyetujui bahwa:
 
 Bandung, 27 Juli 2026  
 Yang Menyatakan,  
-**Fadzkal Luthfi Mayzanio**
+**Fadzkal Luthfi Mayzanio** (NIM 223443033)
 
 ---
 
 ## MOTO PRIBADI & PERSEMBAHAN
 
-> *"Di balik kedalaman samudra yang gelap dan dingin, ketekunan sains dan rekayasa adalah lentera yang menyingkap kebenaran wujud alam ciptaan-Nya. Segala lelah, baris kode yang dirajut, dan rumusan matematis yang diuji bukanlah semata pencapaian fana, melainkan ikhtiar seorang hamba untuk menebar kemaslahatan bagi kemajuan teknologi maritim nusa dan bangsa."*
+> *"Di balik kedalaman samudra yang gelap dan dingin, ketekunan sains dan rekayasa komputer adalah lentera pemandu yang menyingkap tabir rahasia alam ciptaan-Nya. Tiap baris kode C++ yang terkompilasi, tiap persamaan geometris yang terpecahkan, dan tiap awan titik tiga dimensi yang tersusun rapi adalah wujud ikhtiar seorang pembelajar untuk menebar manfaat bagi kejayaan teknologi maritim Indonesia."*
 
-Tugas akhir ini dipersembahkan kepada:  
-1. Kedua orang tua tercinta yang tiada henti memanjatkan doa, mencurahkan kasih sayang, dan memberikan pengorbanan yang tak terhingga.  
-2. Keluarga besar dan sahabat seperjuangan 4AEC atas kebersamaan dan dukungannya.  
-3. Almamater Politeknik Manufaktur Bandung tercinta.
+Karya ini dipersembahkan dengan rasa syukur dan takzim kepada:  
+1. Kedua orang tua tercinta yang tiada henti memanjatkan doa tulus, memberikan dorongan moril, dan pengorbanan yang tak ternilai.  
+2. Keluarga besar dan rekan-rekan seperjuangan atas kebersamaan, motivasi, dan diskusinya.  
+3. Almamater Politeknik Manufaktur Bandung tempat menempa integritas dan keahlian rekayasa.
 
 ---
 
 ## ABSTRAK
 
-Rekonstruksi tiga dimensi (3D) dan navigasi otonom pada wahana selam *Remotely Operated Vehicle* (ROV) di lingkungan perairan subsea menghadapi tantangan berat berupa ketiadaan sinyal satelit GPS, hamburan cahaya dinamis, serta kekeruhan air yang menurunkan ketajaman visual. Sistem Visual SLAM berbasis fitur klasik seperti ORB-SLAM3 mampu menghasilkan pelacakan trajektori 6-DoF berpresisi tinggi dengan *drift* rendah berkat mekanisme *bundle adjustment* dan penutupan loop (*loop closing*), namun hanya menghasilkan awan titik renggang (*sparse point cloud*) yang tidak menampilkan wujud fisik benda bawah laut secara utuh. Di sisi lain, estimasi kedalaman berbasis kecerdasan buatan monokuler (*Depth AI MiDaS*) mampu memprediksi kedalaman permukaan padat (*dense depth*) per-piksel, namun jika berdiri sendiri rentan mengalami distorsi geometris kerucut dan *drift* skala kumulatif. Penelitian ini merancang dan mengimplementasikan arsitektur fusi *Dense Neural-SLAM* yang mengintegrasikan pelacak 6-DoF ORB-SLAM3 C++, modul estimasi kedalaman AI monokuler MiDaS ONNX, RTAB-Map sebagai *global map fusion engine*, serta estimasi bidang dasar 2.5D (*2.5D ground surface estimation*) yang terinspirasi dari EgoExo++ untuk mendukung teleoperasi wahana bawah air.
+Rekonstruksi tiga dimensi (3D Mapping) dan navigasi otonom pada wahana selam *Remotely Operated Vehicle* (ROV) di lingkungan perairan subsea menghadapi tantangan berat berupa ketiadaan sinyal satelit GPS, hamburan cahaya dinamis, serta kekeruhan air yang menurunkan ketajaman visual. Sistem Visual SLAM berbasis fitur klasik seperti ORB-SLAM3 mampu menghasilkan pelacakan trajektori 6-DoF berpresisi tinggi dengan *drift* rendah berkat mekanisme *bundle adjustment* dan penutupan loop (*loop closing*), namun hanya menghasilkan awan titik renggang (*sparse point cloud*) yang tidak menampilkan wujud fisik benda bawah laut secara utuh. Di sisi lain, estimasi kedalaman berbasis kecerdasan buatan monokuler (*Depth AI MiDaS*) mampu memprediksi kedalaman permukaan padat (*dense depth*) per-piksel, namun jika berdiri sendiri rentan mengalami distorsi geometris kerucut dan *drift* skala kumulatif. Penelitian ini merancang dan mengimplementasikan arsitektur fusi *Dense Neural-SLAM* yang mengintegrasikan pelacak 6-DoF ORB-SLAM3 C++, modul estimasi kedalaman AI monokuler MiDaS ONNX, RTAB-Map sebagai *global 3D mapping engine*, serta estimasi bidang dasar 2.5D (*2.5D ground surface estimation*) yang terinspirasi dari EgoExo++ untuk mendukung teleoperasi wahana bawah air.
 
 Kebaruan teknis dari penelitian ini meliputi: (1) Perumusan matriks rotasi pelurusan horisontal $R_{align}$ yang menyelaraskan sistem koordinat optik kamera ($Z$ forward, $X$ right, $Y$ down) ke standar robotika ROS REP 103 ($X$ forward, $Y$ left, $Z$ up), sehingga seluruh awan titik 3D dan trajektori wahana duduk datar alami di atas lantai grid RViz tanpa kemiringan vertikal ke langit; (2) Penerapan transformasi kedalaman hiperbolik fisik $Z = 1 / (\alpha \cdot d + \beta)$ yang mengubah disparitas neural network menjadi kedalaman metrik sejati, berhasil mengeliminasi distorsi lengkung kerucut dan mempertahankan kerataan dinding serta dasar laut; (3) Pemangkasan margin batas 5% yang meniadakan artefak sayap kipas (*border flare*); serta (4) Replikasi penuh elemen visualisasi ORB-SLAM3 ke dalam antarmuka ROS RViz dengan latar belakang putih bersih, mencakup piramida kawat kamera aktif merah, piramida keyframe biru, garis covisibility graph hijau, dan titik fitur 3D bertekstur warna RGB kamera asli dengan filter *Exponential Moving Average* (EMA).
 
 Hasil pengujian fungsional menunjukkan seluruh 15 skenario *Black Box Testing* berhasil 100%. Pengujian kinerja pada video subsea kontainer BlueROV2 dan webcam live membuktikan sistem beroperasi stabil pada 28–30 FPS dengan latensi odometri di bawah 20 ms, beban CPU host 38,5%, serta akurasi translasi dengan *Absolute Trajectory Error* (ATE) sebesar 4,1 cm. Integrasi sensor akustik Ping1D dan barometer Bar30 berhasil mengunci skala metrik fisik tanpa *drift* vertikal. Model 3D padat yang dihasilkan dapat diekspor langsung ke format universal `.ply` dan diinspeksi interaktif melalui browser Web Three.js tanpa ketergantungan software Linux. Pengujian *usability* terhadap pilot ROV menghasilkan skor rata-rata 4,35 dari 5 (87%), membuktikan sistem sangat andal, intuitif, dan siap diterapkan untuk inspeksi maritim presisi.
 
-**Kata Kunci**: *Dense Neural-SLAM, ORB-SLAM3, Monocular Depth AI, RTAB-Map, Remotely Operated Vehicle, 2.5D Ground Surface, RViz, Three.js*
+**Kata Kunci**: *Dense Neural-SLAM, 3D Mapping, ORB-SLAM3, Monocular Depth AI, RTAB-Map, Remotely Operated Vehicle, 2.5D Ground Surface, RViz, Three.js*
 
 ---
 
 ## ABSTRACT
 
-Three-dimensional (3D) dense reconstruction and autonomous navigation for subsea Remotely Operated Vehicles (ROVs) face severe challenges due to GPS denial, dynamic light attenuation, and high turbidity in aquatic environments. Traditional feature-based Visual SLAM systems, such as ORB-SLAM3, achieve highly accurate 6-DoF trajectory tracking with low drift through bundle adjustment and loop closing, but only yield sparse point clouds that fail to capture physical surfaces. Conversely, monocular neural network depth estimation (Depth AI MiDaS) predicts dense per-pixel depth, but suffers from scale drift and geometric horn distortions when operated in isolation. This study designs and implements a novel Dense Neural-SLAM fusion architecture that unifies ORB-SLAM3 6-DoF visual tracking, MiDaS ONNX monocular depth AI, RTAB-Map global voxel mapping, and on-demand 2.5D ground surface estimation inspired by EgoExo++ to assist interactive subsea teleoperation.
+Three-dimensional (3D) dense mapping and autonomous navigation for subsea Remotely Operated Vehicles (ROVs) face severe challenges due to GPS denial, dynamic light attenuation, and high turbidity in aquatic environments. Traditional feature-based Visual SLAM systems, such as ORB-SLAM3, achieve highly accurate 6-DoF trajectory tracking with low drift through bundle adjustment and loop closing, but only yield sparse point clouds that fail to capture physical surfaces. Conversely, monocular neural network depth estimation (Depth AI MiDaS) predicts dense per-pixel depth, but suffers from scale drift and geometric horn distortions when operated in isolation. This study designs and implements a novel Dense Neural-SLAM fusion architecture that unifies ORB-SLAM3 6-DoF visual tracking, MiDaS ONNX monocular depth AI, RTAB-Map global voxel mapping, and on-demand 2.5D ground surface estimation inspired by EgoExo++ to assist interactive subsea teleoperation.
 
 The key technical novelties comprise: (1) Formulating a horizontal coordinate alignment rotation matrix $R_{align}$ that transforms the optical frame ($Z$ forward, $X$ right, $Y$ down) into the ROS REP 103 robot frame ($X$ forward, $Y$ left, $Z$ up), thereby laying the 3D scene and trajectory flat on the RViz grid floor without vertical ceiling tilt; (2) Deriving a physical hyperbolic depth mapping function $Z = 1 / (\alpha \cdot d + \beta)$ from predicted disparity to true metric depth, successfully eliminating convex conical artifacts and preserving planar seabed walls; (3) Implementing a 5% inner border mask that completely eradicates outer flared wing artifacts; and (4) Porting the full suite of ORB-SLAM3 visual features into ROS RViz with a pure white viewport, including the active red wireframe camera frustum, historical blue keyframe pyramids, neon green covisibility graph lines, and real-time RGB-colored sparse map points smoothed via Exponential Moving Average (EMA).
 
 Functional evaluations demonstrate that all 15 Black Box testing scenarios achieved a 100% pass rate. Performance benchmarking on subsea BlueROV2 container video sequences and live cameras confirmed robust real-time tracking at 28-30 FPS with odometry latency under 20 ms, CPU utilization of 38.5%, and an Absolute Trajectory Error (ATE) of 4.1 cm. Complementary Ping1D acoustic sonar and Bar30 pressure sensor integration anchored true physical metric scale with zero vertical drift. Reconstructed 3D dense models are exportable directly to universal .PLY formats for interactive inspection via a standalone Three.js Web viewer. Usability testing with ROV pilots yielded an average rating of 4.35 out of 5 (87%), demonstrating that the system is reliable, intuitive, and practical for subsea maritime inspection.
 
-**Keywords**: *Dense Neural-SLAM, ORB-SLAM3, Monocular Depth AI, RTAB-Map, Remotely Operated Vehicle, 2.5D Ground Surface, RViz, Three.js*
+**Keywords**: *Dense Neural-SLAM, 3D Mapping, ORB-SLAM3, Monocular Depth AI, RTAB-Map, Remotely Operated Vehicle, 2.5D Ground Surface, RViz, Three.js*
 
 ---
 
@@ -117,7 +118,7 @@ Functional evaluations demonstrate that all 15 Black Box testing scenarios achie
 
 Eksplorasi wilayah perairan dalam dan pemantauan infrastruktur maritim menghadapi tantangan operasional yang sangat kompleks. Wahana selam tanpa awak jenis *Remotely Operated Vehicle* (ROV) seperti BlueROV2 menjadi instrumen esensial dalam inspeksi pipa migas bawah laut, pemantauan lambung kapal (*ship hull inspection*), instalasi kabel telekomunikasi bawah laut, dan eksplorasi ekosistem terumbu karang. Pada operasi subsea konvensional, pilot ROV mengandalkan umpan video langsung (*first-person egocentric video feed*) berdefinisi tinggi yang ditransmisikan melalui tether kabel optik. Namun, sudut pandang kamera depan yang terbatas (*narrow field-of-view*), minimnya referensi jarak spasial absolut, serta kondisi perairan yang keruh akibat hamburan partikel tersuspensi (*marine snow*) secara drastis meningkatkan beban kognitif operator, memperlambat proses manuver presisi, dan meningkatkan risiko tabrakan wahana dengan struktur bawah air.
 
-Untuk mewujudkan navigasi otonom dan kesadaran situasional (*situational awareness*) spasial yang komprehensif, dibutuhkan teknologi *Simultaneous Localization and Mapping* (SLAM). Di lingkungan bawah air, sinyal radio frekuensi tinggi seperti *Global Positioning System* (GPS) mengalami atenuasi drastis dalam beberapa sentimeter pertama kolom air, sehingga navigasi sepenuhnya bergantung pada sensor internal dan penglihatan komputer (*computer vision*). Sistem sensor akustik seperti *Ultra-Short Baseline* (USBL), *Doppler Velocity Log* (DVL), dan sonar pencitraan (*imaging sonar*) menawarkan referensi navigasi berharga, namun instrumen tersebut memiliki harga yang sangat mahal, dimensi fisik yang besar dan berat, serta tingkat pembaruan data (*refresh rate*) yang relatif lambat. Oleh karena itu, Visual SLAM berbasis kamera optik monokuler menjadi alternatif yang sangat menarik dan ekonomis bagi wahana ROV kelas inspeksi ringan.
+Untuk mewujudkan navigasi otonom dan kesadaran situasional (*situational awareness*) spasial yang komprehensif, dibutuhkan teknologi *Simultaneous Localization and Mapping* (SLAM) dan *3D Dense Mapping*. Di lingkungan bawah air, sinyal radio frekuensi tinggi seperti *Global Positioning System* (GPS) mengalami atenuasi drastis dalam beberapa sentimeter pertama kolom air, sehingga navigasi sepenuhnya bergantung pada sensor internal dan penglihatan komputer (*computer vision*). Sistem sensor akustik seperti *Ultra-Short Baseline* (USBL), *Doppler Velocity Log* (DVL), dan sonar pencitraan (*imaging sonar*) menawarkan referensi navigasi berharga, namun instrumen tersebut memiliki harga yang sangat mahal, dimensi fisik yang besar dan berat, serta tingkat pembaruan data (*refresh rate*) yang relatif lambat. Oleh karena itu, Visual SLAM berbasis kamera optik monokuler menjadi alternatif yang sangat menarik dan ekonomis bagi wahana ROV kelas inspeksi ringan.
 
 Di antara algoritma Visual SLAM modern, ORB-SLAM3 (Campos et al., IEEE Transactions on Robotics 2021) diakui luas sebagai standar emas dalam estimasi gerak kamera 6 derajat kebebasan (6-DoF Pose Tracking: translasi X, Y, Z dan rotasi roll, pitch, yaw). Keunggulan fundamental ORB-SLAM3 terletak pada arsitektur tiga thread paralel (Tracking, Local Mapping, dan Loop Closing) dengan optimasi *Bundle Adjustment* (BA), graf kovisibilitas (*covisibility graph*), serta pohon perentang minimum (*spanning tree*) yang memungkinkan pelacakan bebas drift (*zero-drift localization*) saat mengunjungi kembali area yang telah dipetakan. Namun demikian, keluaran geometris dari ORB-SLAM3 murni bersifat renggang (*sparse point cloud*), yang hanya merekonstruksi 100 hingga 400 titik sudut fitur FAST per frame. Titik-titik ini tidak mampu membentuk wujud fisik benda padat, sehingga operator tidak dapat mengenali kontur lambung kapal, dinding kontainer, maupun kemiringan dasar laut secara utuh.
 
@@ -132,7 +133,8 @@ Berdasarkan permasalahan mendasar tersebut, penelitian tugas akhir ini merancang
 1. Bagaimana merancang dan mengimplementasikan arsitektur sistem fusi Dense Neural-SLAM yang menyatukan keandalan pelacakan 6-DoF ORB-SLAM3, kepadatan estimasi kedalaman AI monokuler MiDaS ONNX, dan agregasi voxel 3D global RTAB-Map pada wahana ROV?
 2. Bagaimana memformulasikan penyelarasan geometris matematis melalui matriks rotasi pelurusan $R_{align}$ dan pemetaan kedalaman hiperbolik fisik $Z = 1 / (\alpha \cdot d + \beta)$ guna mengeliminasi anomali kemiringan vertikal ke langit-langit serta distorsi kerucut cembung pada model 3D?
 3. Bagaimana mereplikasi seluruh elemen visualisasi OpenGL Pangolin ORB-SLAM3 (piramida kawat kamera aktif merah, piramida keyframe biru, garis covisibility graph hijau, dan titik fitur sparse berwarna kamera asli) ke dalam antarmuka ROS RViz berlatar putih bersih?
-4. Bagaimana kinerja dan akurasi sistem fusi Dense Neural-SLAM yang dikembangkan ditinjau dari aspek frame rate real-time (FPS), latensi odometri, konsumsi sumber daya komputasi, dan tingkat kegunaan (*usability*) bagi pilot ROV?
+4. Bagaimana mewujudkan sistem 3D Mapping padat bawah laut yang dapat diekspor ke format standar (.PLY) dan diinspeksi secara interaktif melalui Three.js Web Viewer tanpa ketergantungan software Linux?
+5. Bagaimana kinerja dan akurasi sistem fusi Dense Neural-SLAM yang dikembangkan ditinjau dari aspek frame rate real-time (FPS), latensi odometri, konsumsi sumber daya komputasi, dan tingkat kegunaan (*usability*) bagi pilot ROV?
 
 ### I.3 Batasan Masalah
 
@@ -152,6 +154,15 @@ Berdasarkan permasalahan mendasar tersebut, penelitian tugas akhir ini merancang
 4. Mengembangkan modul ekspor model 3D universal (`.ply`) dan antarmuka web interaktif Three.js WebGL yang memungkinkan inspeksi model 3D tanpa ketergantungan perangkat lunak Linux.
 5. Menguji dan menganalisis performa sistem secara kuantitatif melalui Black Box Testing (15 skenario), Performance Testing (FPS, latensi, CPU, dan ATE), serta Usability Testing terhadap pilot ROV.
 
+### I.5 Manfaat Penelitian
+
+- **Manfaat Teoritis**: Memberikan kontribusi ilmiah baru dalam menggabungkan SLAM berbasis fitur geometris teroptimasi (ORB-SLAM3) dengan kecerdasan buatan monokuler (Depth AI), membuktikan bahwa keterbatasan intrinsik SLAM monokuler klasik dalam merekonstruksi permukaan padat dapat diatasi secara elegan tanpa memerlukan sensor LiDAR atau kamera stereo yang mahal. Formulasi matematis R_align dan kalibrasi disparitas hiperbolik juga menjadi rujukan baru dalam menjembatani disparitas konvensi optik penglihatan komputer dengan standar kinematika robotika.
+- **Manfaat Praktis**: Memberikan alat bantu navigasi dan persepsi spasial 3D real-time yang intuitif bagi operator ROV, mengurangi risiko tabrakan saat bermanuver di dekat struktur pipa, dermaga, atau bangkai kapal. Menghasilkan kembar digital (digital twin) tiga dimensi dari struktur bawah laut yang padat dan bertekstur warna asli, serta memfasilitasi inspeksi pasca-misi melalui Web Three.js Viewer yang dapat diakses dari browser komputer Windows standar di darat.
+
+### I.6 Sistematika Penulisan
+
+Sistematika penulisan laporan Tugas Akhir ini disusun secara sistematis ke dalam lima bab: BAB I PENDAHULUAN, BAB II TINJAUAN PUSTAKA, BAB III METODOLOGI PENYELESAIAN MASALAH, BAB IV HASIL DAN PEMBAHASAN, BAB V PENUTUP, serta dilengkapi dengan DAFTAR PUSTAKA dan LAMPIRAN teknis.
+
 ---
 
 ## BAB II: TINJAUAN PUSTAKA
@@ -159,40 +170,76 @@ Berdasarkan permasalahan mendasar tersebut, penelitian tugas akhir ini merancang
 ### II.1 Tinjauan Teori
 
 #### II.1.1 Simultaneous Localization and Mapping (SLAM)
-SLAM merupakan teknologi inti dalam robotika otonom (Cadena et al., IEEE T-RO 2016). Formulasi probabilitas SLAM diselesaikan menggunakan estimasi Maximum A Posteriori (MAP):
+SLAM merupakan persoalan fundamental dalam robotika otonom (Cadena et al., IEEE T-RO 2016). Formulasi probabilitas SLAM diselesaikan menggunakan estimasi Maximum A Posteriori (MAP):
 $$\mathcal{X}^* = \arg\max_{\mathcal{X}} P(\mathcal{X} | \mathcal{Z}) = \arg\min_{\mathcal{X}} \sum_{k} \| z_k - h_k(x_k) \|_{\Sigma_k}^2$$
 
-#### II.1.2 Visual SLAM: Feature-Based vs Direct Methods
+#### II.1.2 Pemodelan Kamera Pinhole dan Distorsi Lensa
+Kamera optik memetakan titik 3D di dunia nyata $P = [X, Y, Z]^T$ ke bidang citra 2D $p = [u, v]^T$ menggunakan model kamera lubang jarum:
+$$K = \begin{bmatrix} f_x & 0 & c_x \\ 0 & f_y & c_y \\ 0 & 0 & 1 \end{bmatrix}$$
+Di mana $f_x$ dan $f_y$ adalah panjang fokus efektif dalam piksel, serta $c_x$ dan $c_y$ adalah titik pusat optik (*principal point*).
+
+#### II.1.3 Visual SLAM: Feature-Based vs Direct Methods
 Visual SLAM terbagi atas:
 - **Feature-Based SLAM**: Mengekstrak keypoints (ORB, FAST) dan meminimalkan *reprojection error* via Bundle Adjustment. Sangat tahan terhadap variasi pencahayaan dan rotasi cepat (ORB-SLAM3).
 - **Direct SLAM**: Meminimalkan *photometric error* intensitas piksel (LSD-SLAM, DSO). Kuat di area minim tekstur tetapi rentan terhadap efek refraksi air dan auto-exposure.
 
-#### II.1.3 Sistem ORB-SLAM3 & Multi-Map Atlas System (Campos et al., 2021)
+#### II.1.4 Arsitektur Lengkap ORB-SLAM3 & Multi-Map Atlas System (Campos et al., 2021)
 ORB-SLAM3 mengoperasikan 3 thread komputasi paralel:
 1. **Tracking Thread**: Ekstraksi fitur ORB 30 FPS, motion-only BA.
 2. **Local Mapping Thread**: Jendela kovisibilitas keyframe, local BA.
 3. **Loop & Map Merging Thread**: Deteksi loop closure berbasis DBoW2 dan Atlas multi-map system.
 
-```
-       [ Input Frame ] 
-             │
-      ┌──────┴──────┐
-      ▼             ▼
-  Tracking    Local Mapping ──► Loop Closing & Map Merging
-  (30 FPS)      (Local BA)            (DBoW2 / Atlas)
-```
+![Gambar II.1 Arsitektur Sistem Tiga Thread Utama ORB-SLAM3](gambar_ta/fig_orbslam3_system_architecture.png)
+*Gambar II.1 Arsitektur Sistem Tiga Thread Utama ORB-SLAM3 [Campos et al., IEEE T-RO 2021]*
 
-#### II.1.4 Monocular Depth Estimation & MiDaS ONNX
+![Gambar II.2 Representasi Factor Graph Bundle Adjustment pada ORB-SLAM3](gambar_ta/fig_orbslam3_factor_graphs.png)
+*Gambar II.2 Representasi Factor Graph Bundle Adjustment pada ORB-SLAM3 [Campos et al., IEEE T-RO 2021]*
+
+#### II.1.5 Monocular Depth Estimation & MiDaS ONNX
 Model neural network MiDaS (Ranftl et al., IEEE TPAMI 2022) memprediksi peta disparitas invers $d \propto 1/Z$. Inferensi dijalankan via ONNX Runtime pada CPU multi-threading.
 
-#### II.1.5 Perkembangan Dense Neural-SLAM & Loopy-SLAM (CVPR 2024)
-Loopy-SLAM (Liso et al., 2024) menambatkan representasi neural pada kumpulan titik (*neural points*) yang dapat ditransformasikan saat terjadi penutupan loop, menginspirasi fusi tracking geometris ORB-SLAM3 dengan proyeksi titik padat Depth AI.
+#### II.1.6 Paradigma Dense Neural-SLAM & Loopy-SLAM (CVPR 2024)
+Loopy-SLAM (Liso et al., CVPR 2024) membuktikan bahwa penambatan representasi neural pada sekumpulan titik (*neural point anchoring*) memungkinkan penutupan loop global tanpa re-optimasi neural network dari awal. Konsep ini menjadi landasan teoritis fusi tugas akhir ini: mengunci trajektori menggunakan ORB-SLAM3 lalu memproyeksikan awan titik padat Depth AI mengikuti pose teroptimasi.
 
-#### II.1.6 Estimasi Permukaan 2.5D Ground Surface pada ROV (EgoExo++, 2024)
-EgoExo++ (Abdullah et al., 2024) membuktikan pentingnya estimasi permukaan dasar laut 2.5D (*2.5D ground surface estimation*) untuk pertimbangan ketinggian (*clearance*) dan teleoperasi interaktif BlueROV2.
+![Gambar II.3 Konsep Rekonstruksi Dense Neural-SLAM Bebas Drift pada Loopy-SLAM](gambar_ta/fig_loopyslam_dense_neural_concept.png)
+*Gambar II.3 Konsep Rekonstruksi Dense Neural-SLAM Bebas Drift pada Loopy-SLAM [Liso et al., CVPR 2024]*
 
-#### II.1.7 Sensor Komplementer Subsea: Sonar Ping1D & Bar30
-Sensor akustik 115 kHz Ping1D (rentang 0.2–30 m) dan sensor tekanan hidrostatik Bar30 (resolusi 0.2 mm) diintegrasikan untuk mengunci skala metrik fisik sejati dan menstabilkan sumbu Z.
+#### II.1.7 Estimasi Permukaan Dasar 2.5D pada ROV (EgoExo++, 2024)
+EgoExo++ (Abdullah et al., 2024) memadukan visual SLAM dengan estimasi permukaan dasar laut 2.5D (*piecewise planar ground surface*) pada BlueROV2 guna memberikan pertimbangan ketinggian wahana terhadap dasar laut (*clearance reasoning*) dan sintesis sudut pandang luar (*exocentric view*).
+
+![Gambar II.4 Teleoperasi ROV dan Estimasi Permukaan Dasar 2.5D EgoExo++](gambar_ta/fig_egoexo_rov_teleoperation.png)
+*Gambar II.4 Teleoperasi ROV dan Estimasi Permukaan Dasar 2.5D EgoExo++ [Abdullah et al., 2024]*
+
+![Gambar II.5 Pipeline Estimasi Permukaan 2.5D dan Sintesis Sudut Pandang Ketiga](gambar_ta/fig_egoexo_25d_surface_pipeline.png)
+*Gambar II.5 Pipeline Estimasi Permukaan 2.5D dan Sintesis Sudut Pandang Ketiga [Abdullah et al., 2024]*
+
+#### II.1.8 Multi-Sensor Fusion Komplementer: Sonar Ping1D & Bar30
+Sensor akustik Ping1D (115 kHz) dan sensor tekanan Bar30 diintegrasikan sebagai anchor skala metrik fisik sejati (meter) dan penstabil sumbu Z.
+
+#### II.1.9 Rekonstruksi Volumetrik dan Voxel Grid Mapping (RTAB-Map)
+RTAB-Map mengagregasikan potongan awan titik padat dari Depth AI menjadi model volumetrik voxel grid 3D dengan resolusi sel 2 cm (0.02 m). Manajemen memori STM, WM, dan LTM mencegah konsumsi memori tak terbatas.
+
+#### II.1.10 Format Universal .PLY dan Visualisasi WebGL Three.js
+Model 3D padat diekstrak ke dalam format Polygon File Format (.PLY) dan dirender di peramban web modern menggunakan Three.js WebGL lengkap dengan kontrol kamera OrbitControls.
+
+### II.2 Tinjauan Alat
+
+Membahas spesifikasi wahana selam BlueROV2, middleware Robot Operating System (ROS Noetic), RTAB-Map, RViz 3D visualizer, dan Zero-Latency MJPEG Webcam Bridge.
+
+![Gambar II.6 Konfigurasi Wahana Selam BlueROV2 dan Penempatan Sensor](gambar_ta/fig_egoexo_bluerov2_setup.png)
+*Gambar II.6 Konfigurasi Wahana Selam BlueROV2 dan Penempatan Sensor [Abdullah et al., 2024]*
+
+### II.3 Studi Penelitian Terdahulu
+
+Tabel II.2 merangkum komparasi mendalam antara penelitian terdahulu terkait Visual SLAM, Depth AI, dan 3D Mapping subsea.
+
+| Peneliti & Tahun | Metode / Sistem | Kelebihan | Keterbatasan / Kesenjangan |
+| :--- | :--- | :--- | :--- |
+| **Campos et al. (2021) [ORB-SLAM3]** | Feature-Based SLAM + Atlas Multi-Map | Tracking 6-DoF sangat akurat, zero-drift dengan loop closure | Output hanya awan titik renggang (sparse), tidak membentuk wujud padat fisik |
+| **Liso et al. (2024) [Loopy-SLAM]** | Dense Neural-SLAM dengan Point Anchoring | Rekonstruksi padat dengan penutupan loop pada neural points | Komputasi sangat berat, membutuhkan GPU workstation berdaya tinggi |
+| **Abdullah et al. (2024) [EgoExo++]** | Visual SLAM + Estimasi Permukaan 2.5D | Sintesis sudut pandang ketiga dan estimasi clearance dasar laut | Belum mengintegrasikan fusi dense neural depth AI dengan RTAB-Map |
+| **Labbé & Michaud (2019) [RTAB-Map]** | Appearance-Based Loop Closing RGB-D | Penyimpanan memori jangka panjang efisien | Visual odometri bawaan rentan slip saat rotasi cepat bawah air |
+| **Penelitian Ini (Fadzkal, 2026)** | Fusi Dense Neural-SLAM: ORB-SLAM3 + MiDaS + RTAB-Map + 2.5D | Tracking akurat, model 3D padat, bebas distorsi kerucut via $R_{align}$, Three.js Web | Dioptimalkan khusus untuk lingkungan subsea ROV kelas inspeksi |
 
 ---
 
@@ -206,38 +253,29 @@ Penelitian menerapkan Rapid Application Development (RAD):
 
 ### III.2 Arsitektur Sistem Fusi Dense Neural-SLAM
 
-```
-  ┌─────────────────────────────────────────────────────────────┐
-  │                 INPUT VIDEO & SENSOR ROV                    │
-  │   - Kamera HD Subsea 1080p / Webcam USB (MJPEG Port 8088)   │
-  │   - Sonar Akustik Ping1D (Jarak Metrik) & Bar30 (Tekanan)   │
-  └──────────────┬──────────────────────────────┬───────────────┘
-                 │ Frame BGR                    │ Frame BGR
-                 ▼                              ▼
-  ┌──────────────────────────────┐ ┌────────────────────────────┐
-  │  Node C++ ORB-SLAM3 Odom     │ │  Node Python Depth AI      │
-  │  - Tracking 6-DoF SE(3)      │ │  - MiDaS ONNX Neural Net   │
-  │  - Matriks Rotasi R_align    │ │  - Pemetaan Hiperbolik     │
-  │  - Marker Piramida Merah     │ │  - Pemotongan Margin 5%    │
-  │  - KeyFrame Biru & Graf      │ │  - Output /camera/synced/  │
-  └──────────────┬───────────────┘ └────────────┬───────────────┘
-                 │ Odometri (/rtabmap/odom)     │ Depth & PointCloud2
-                 └──────────────┬───────────────┘
-                                ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │              RTAB-MAP GLOBAL 3D FUSION ENGINE               │
-  │   - Penyatuan Pose & Kedalaman ke Ruang Koordinat Dunia     │
-  │   - Manajemen Graf Memori (STM, WM, LTM) & Voxel Grid 3D    │
-  └──────────────┬──────────────────────────────┬───────────────┘
-                 ▼                              ▼
-  ┌──────────────────────────────┐ ┌────────────────────────────┐
-  │ Visualisasi ROS RViz         │ │ Ekspor Model Standar .PLY  │
-  │ - Viewport Putih Bersih      │ │ - Inspeksi Interaktif di   │
-  │ - Piramida Kamera & Fitur 3D │ │   Browser Web Three.js     │
-  └──────────────────────────────┘ └────────────────────────────┘
-```
+![Gambar III.2 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM pada ROV](gambar_ta/gambar_arsitektur_sistem_fusi.png)
+*Gambar III.2 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM pada ROV*
 
-### III.3 Perumusan Matematis Inti
+Arsitektur fusi sistem terdiri atas:
+- **Lapisan Masukan Kamera**: Membaca stream video dari kamera HD ROV atau webcam USB via MJPEG Bridge HTTP port 8088.
+- **Lapisan Tracking 6-DoF ORB-SLAM3**: Node C++ menghitung pose $SE(3)$, menerapkan matriks pelurusan $R_{align}$, dan mempublikasikan odometri ke `/rtabmap/odom`.
+- **Lapisan Estimasi Kedalaman AI**: Node Python memproses neural network MiDaS ONNX, menerapkan transformasi kedalaman hiperbolik, memotong margin 5%, dan menghasilkan `/camera/synced/depth` serta `/camera/depth/points`.
+- **Lapisan RTAB-Map Global 3D Mapping**: Menyatukan pose terpercaya dengan peta kedalaman, mengelola graf memori, dan membentuk voxel grid 3D padat.
+- **Lapisan Visualisasi RViz & Three.js Web**: Menampilkan rekonstruksi 3D berlatar putih bersih serta ekspor format `.ply` interaktif.
+
+### III.3 Spesifikasi Lingkungan Sistem
+
+| Komponen Sistem | Spesifikasi Teknis |
+| :--- | :--- |
+| **Wahana ROV** | BlueROV2 Heavy Configuration (8 Thrusters T200, Fathom Tether 100m) |
+| **Sensor Optik** | Kamera Low-Light HD 1080p Subsea / Webcam USB 640x480 PinHole Calibrated |
+| **Sensor Komplementer** | Blue Robotics Ping1D Sonar (115 kHz) dan Bar30 Depth Sensor |
+| **Workstation Komputasi** | Laptop AMD Ryzen / Intel Core i7, 16 GB RAM, GPU Direct3D 12 WSLg |
+| **Sistem Operasi** | Microsoft Windows 11 64-bit + Ubuntu 20.04 LTS pada WSL2 |
+| **Framework Robotika** | Robot Operating System (ROS Noetic Ninjemys) |
+| **Pustaka SLAM & AI** | ORB-SLAM3 v1.0 (C++14), OpenCV 4.2, ONNX Runtime 1.16, RTAB-Map 0.21 |
+
+### III.4 Perumusan Matematis Inti
 
 #### 1. Matriks Rotasi Pelurusan Horisontal ($R_{align}$)
 Untuk mengonversi kerangka optik kamera ($Z$ forward, $X$ right, $Y$ down) ke ROS REP 103 ($X$ forward mendatar, $Y$ left mendatar, $Z$ up vertikal):
@@ -259,6 +297,9 @@ $$
 - $Z_{odom} = -Y_{cam}$ (ketinggian vertikal positif ke atas).
 - $\det(R_{align}) = +1.0$ (rotasi $SO(3)$ murni tanpa distorsi skala).
 
+![Gambar III.6 Penyelarasan Koordinat via Matriks Rotasi R_align](gambar_ta/gambar_koordinat_ralign.png)
+*Gambar III.6 Penyelarasan Koordinat via Matriks Rotasi R_align*
+
 #### 2. Transformasi Kedalaman Hiperbolik Fisik
 Mengonversi disparitas $d_{norm} \in [0, 1]$ menjadi kedalaman metrik sejati $Z$:
 
@@ -268,6 +309,9 @@ $$
 
 Di mana $z_{near} = 0.35\text{ m}$ dan $z_{far} = 4.50\text{ m}$. Formulasi ini memulihkan kelurusan fisik dinding datar dan dasar laut.
 
+![Gambar III.7 Kurva Perbandingan Pemetaan Disparitas ke Kedalaman Metrik](gambar_ta/gambar_grafik_depth_hiperbolik.png)
+*Gambar III.7 Kurva Perbandingan Pemetaan Disparitas ke Kedalaman Metrik*
+
 #### 3. Pemotongan Margin Tepi (*Inner Boundary Mask*)
 ```python
 border_u = int(w * 0.05); border_v = int(h * 0.05)
@@ -275,11 +319,17 @@ inner_mask = (u >= border_u) & (u <= w - border_u) & (v >= border_v) & (v <= h -
 valid_mask = (Z > 0.25) & (Z < 5.0) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z) & inner_mask
 ```
 
+![Gambar III.8 Skema Pemotongan Margin 5% untuk Eliminasi Artefak Sayap Kipas](gambar_ta/gambar_boundary_filtering.png)
+*Gambar III.8 Skema Pemotongan Margin 5% untuk Eliminasi Artefak Sayap Kipas*
+
 #### 4. Replikasi Visualisasi ORB-SLAM3 di RViz
 Piramida kawat 8 rusuk kamera didefinisikan dengan titik verteks:
 - $V_0 = (0, 0, 0)^T$ (pusat optik)
 - $V_{1..4} = (\pm w, \pm h, z)^T$ dengan $w = 0.08\text{m}, h = 0.06\text{m}, z = 0.048\text{m}$
 - Titik ditransformasikan ke koordinat dunia: $P_{world} = t_{odom} + R_{odom} \cdot V_i$
+
+![Gambar III.9 Geometri Wireframe Frustum Piramida Kamera ORB-SLAM3](gambar_ta/gambar_geometri_piramida.png)
+*Gambar III.9 Geometri Wireframe Frustum Piramida Kamera ORB-SLAM3*
 
 ---
 
@@ -287,6 +337,9 @@ Piramida kawat 8 rusuk kamera didefinisikan dengan titik verteks:
 
 ### IV.1 Hasil Implementasi Sistem
 Sistem fusi Dense Neural-SLAM berhasil diintegrasikan dan beroperasi stabil. Node C++ `orb_slam3_odom_node` menyiarkan odometri dan visual marker ke topik `/orb_slam3/camera_marker`, `/orb_slam3/keyframe_markers`, `/orb_slam3/covisibility_graph`, dan `/orb_slam3/sparse_points`. Antarmuka RViz menampilkan latar belakang putih bersih (`255; 255; 255`) dengan grid lantai abu-abu elegan (`200; 200; 200`).
+
+![Gambar IV.1 Evaluasi Komparasi Kinerja Sistem SLAM Subsea](gambar_ta/gambar_benchmark_komparasi.png)
+*Gambar IV.1 Evaluasi Komparasi Kinerja Sistem SLAM Subsea*
 
 ### IV.2 Hasil Pengujian Fungsional (Black Box Testing)
 
@@ -440,6 +493,6 @@ Pengujian dilakukan pada rekaman video inspeksi kontainer subsea BlueROV2 dan pe
 """
 
 with open(r"c:\remote_ROV\TUGAS_AKHIR_FADZKAL_LUTHFI_MAYZANIO.md", "w", encoding="utf-8") as f:
-    f.write(content)
+    f.write(md_content)
 
-print("[OK] TUGAS_AKHIR_FADZKAL_LUTHFI_MAYZANIO.md generated successfully!")
+print("[OK] TUGAS_AKHIR_FADZKAL_LUTHFI_MAYZANIO.md updated with all 12 images and 3D mapping sections!")
