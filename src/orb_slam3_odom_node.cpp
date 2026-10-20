@@ -25,6 +25,10 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <std_msgs/String.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -104,6 +108,10 @@ public:
         odomPub_ = nh_.advertise<nav_msgs::Odometry>(strOdomTopic_, 10);
         posePub_ = nh_.advertise<geometry_msgs::PoseStamped>("/orb_slam3/camera_pose", 10);
         statusPub_ = nh_.advertise<std_msgs::String>("/orb_slam3/status", 5);
+        camMarkerPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/camera_marker", 5);
+        kfMarkerPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/keyframe_markers", 5);
+        covisGraphPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/covisibility_graph", 5);
+        sparsePointsPub_ = nh_.advertise<sensor_msgs::PointCloud2>("/orb_slam3/sparse_points", 5);
 
         // 5. Mode Operasi: Langsung Buka Kamera atau Subscribe ROS Topic
         if (!strCameraSource_.empty())
@@ -184,8 +192,19 @@ private:
         if (mbTrackingOk && !Tcw.matrix().isZero())
         {
             Sophus::SE3f Twc = Tcw.inverse();
-            Eigen::Vector3f t = Twc.translation();
-            Eigen::Quaternionf q = Twc.unit_quaternion();
+
+            // Transformasi Orientasi & Translasi:
+            // Petakan dari sistem optik ORB-SLAM3 (X=kanan, Y=bawah, Z=maju)
+            // ke sistem standar ROS odom (X=maju mendatar, Y=kiri mendatar, Z=atas vertikal)
+            // agar titik-titik awan 3D dan kamera duduk datar di lantai RViz (tidak meluncur ke atas!)
+            Eigen::Matrix3f R_align;
+            R_align <<  0.0f,  0.0f,  1.0f,
+                       -1.0f,  0.0f,  0.0f,
+                        0.0f, -1.0f,  0.0f;
+
+            Eigen::Vector3f t_odom = R_align * Twc.translation();
+            Eigen::Matrix3f R_odom = R_align * Twc.rotationMatrix();
+            Eigen::Quaternionf q_odom(R_odom);
 
             // Odometry Message
             nav_msgs::Odometry odomMsg;
@@ -193,14 +212,14 @@ private:
             odomMsg.header.frame_id = strOdomFrame_;
             odomMsg.child_frame_id = strChildFrame_;
 
-            odomMsg.pose.pose.position.x = t.x();
-            odomMsg.pose.pose.position.y = t.y();
-            odomMsg.pose.pose.position.z = t.z();
+            odomMsg.pose.pose.position.x = t_odom.x();
+            odomMsg.pose.pose.position.y = t_odom.y();
+            odomMsg.pose.pose.position.z = t_odom.z();
 
-            odomMsg.pose.pose.orientation.x = q.x();
-            odomMsg.pose.pose.orientation.y = q.y();
-            odomMsg.pose.pose.orientation.z = q.z();
-            odomMsg.pose.pose.orientation.w = q.w();
+            odomMsg.pose.pose.orientation.x = q_odom.x();
+            odomMsg.pose.pose.orientation.y = q_odom.y();
+            odomMsg.pose.pose.orientation.z = q_odom.z();
+            odomMsg.pose.pose.orientation.w = q_odom.w();
 
             // Kovariansi posisi tinggi (tracking ORB-SLAM3 sangat dipercaya)
             for (int i = 0; i < 36; i++) odomMsg.pose.covariance[i] = 0.0;
@@ -227,17 +246,20 @@ private:
                 tfMsg.header.frame_id = strOdomFrame_;
                 tfMsg.child_frame_id = strChildFrame_;
 
-                tfMsg.transform.translation.x = t.x();
-                tfMsg.transform.translation.y = t.y();
-                tfMsg.transform.translation.z = t.z();
+                tfMsg.transform.translation.x = t_odom.x();
+                tfMsg.transform.translation.y = t_odom.y();
+                tfMsg.transform.translation.z = t_odom.z();
 
-                tfMsg.transform.rotation.x = q.x();
-                tfMsg.transform.rotation.y = q.y();
-                tfMsg.transform.rotation.z = q.z();
-                tfMsg.transform.rotation.w = q.w();
+                tfMsg.transform.rotation.x = q_odom.x();
+                tfMsg.transform.rotation.y = q_odom.y();
+                tfMsg.transform.rotation.z = q_odom.z();
+                tfMsg.transform.rotation.w = q_odom.w();
 
                 tfBroadcaster_.sendTransform(tfMsg);
             }
+
+            // Visualisasi Elemen ORB-SLAM3 di RViz: Kamera Merah, KeyFrame Biru, Graf Hijau, Titik Fitur
+            PublishOrbVisuals(stamp, t_odom, R_odom);
         }
     }
 
@@ -255,6 +277,192 @@ private:
         }
 
         ProcessFrame(cvPtr->image, msg->header.stamp);
+    }
+
+    void AddCameraFrustumLines(std::vector<geometry_msgs::Point> &points,
+                               const Eigen::Vector3f &t, const Eigen::Matrix3f &R,
+                               float scale = 0.08f)
+    {
+        float w = scale;
+        float h = w * 0.75f;
+        float z = w * 0.6f;
+
+        Eigen::Vector3f V[5];
+        V[0] = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+        V[1] = Eigen::Vector3f(-w, -h, z);
+        V[2] = Eigen::Vector3f( w, -h, z);
+        V[3] = Eigen::Vector3f( w,  h, z);
+        V[4] = Eigen::Vector3f(-w,  h, z);
+
+        geometry_msgs::Point P_world[5];
+        for (int i = 0; i < 5; i++)
+        {
+            Eigen::Vector3f P = t + R * V[i];
+            P_world[i].x = P.x();
+            P_world[i].y = P.y();
+            P_world[i].z = P.z();
+        }
+
+        int edges[8][2] = {
+            {0, 1}, {0, 2}, {0, 3}, {0, 4},
+            {1, 2}, {2, 3}, {3, 4}, {4, 1}
+        };
+
+        for (int e = 0; e < 8; e++)
+        {
+            points.push_back(P_world[edges[e][0]]);
+            points.push_back(P_world[edges[e][1]]);
+        }
+    }
+
+    void PublishOrbVisuals(const ros::Time &stamp, const Eigen::Vector3f &t_odom, const Eigen::Matrix3f &R_odom)
+    {
+        // 1. Current Camera Wireframe Pyramid (RED - Identik dengan Pangolin ORB-SLAM3)
+        visualization_msgs::Marker camMarker;
+        camMarker.header.stamp = stamp;
+        camMarker.header.frame_id = strOdomFrame_;
+        camMarker.ns = "current_camera";
+        camMarker.id = 0;
+        camMarker.type = visualization_msgs::Marker::LINE_LIST;
+        camMarker.action = visualization_msgs::Marker::ADD;
+        camMarker.scale.x = 0.005; // Tebal garis 5 mm
+        camMarker.color.r = 1.0f;
+        camMarker.color.g = 0.05f;
+        camMarker.color.b = 0.05f;
+        camMarker.color.a = 1.0f;
+        AddCameraFrustumLines(camMarker.points, t_odom, R_odom, 0.08f);
+        camMarkerPub_.publish(camMarker);
+
+        // 2. Simpan Keyframe baru jika ada pergerakan signifikan (> 6 cm atau > 4 derajat)
+        static Eigen::Vector3f last_kf_t = Eigen::Vector3f::Zero();
+        static Eigen::Matrix3f last_kf_R = Eigen::Matrix3f::Identity();
+        static bool first_kf = true;
+
+        bool is_new_kf = false;
+        if (first_kf)
+        {
+            is_new_kf = true;
+            first_kf = false;
+        }
+        else
+        {
+            float dist = (t_odom - last_kf_t).norm();
+            float rot_diff = (R_odom.transpose() * last_kf_R - Eigen::Matrix3f::Identity()).norm();
+            if (dist > 0.06f || rot_diff > 0.06f)
+            {
+                is_new_kf = true;
+            }
+        }
+
+        if (is_new_kf)
+        {
+            last_kf_t = t_odom;
+            last_kf_R = R_odom;
+            vKeyFramePoses_.push_back(std::make_pair(t_odom, R_odom));
+
+            // Perbarui KeyFrame Frustums (BLUE - Identik dengan Pangolin ORB-SLAM3)
+            visualization_msgs::Marker kfMarker;
+            kfMarker.header.stamp = stamp;
+            kfMarker.header.frame_id = strOdomFrame_;
+            kfMarker.ns = "keyframes";
+            kfMarker.id = 0;
+            kfMarker.type = visualization_msgs::Marker::LINE_LIST;
+            kfMarker.action = visualization_msgs::Marker::ADD;
+            kfMarker.scale.x = 0.003; // Tebal garis 3 mm
+            kfMarker.color.r = 0.1f;
+            kfMarker.color.g = 0.45f;
+            kfMarker.color.b = 1.0f;
+            kfMarker.color.a = 0.85f;
+
+            // Perbarui Covisibility Graph (GREEN - Identik dengan Pangolin ORB-SLAM3)
+            visualization_msgs::Marker covisMarker;
+            covisMarker.header.stamp = stamp;
+            covisMarker.header.frame_id = strOdomFrame_;
+            covisMarker.ns = "covisibility";
+            covisMarker.id = 0;
+            covisMarker.type = visualization_msgs::Marker::LINE_LIST;
+            covisMarker.action = visualization_msgs::Marker::ADD;
+            covisMarker.scale.x = 0.002;
+            covisMarker.color.r = 0.0f;
+            covisMarker.color.g = 1.0f;
+            covisMarker.color.b = 0.2f;
+            covisMarker.color.a = 0.65f;
+
+            for (size_t i = 0; i < vKeyFramePoses_.size(); i++)
+            {
+                AddCameraFrustumLines(kfMarker.points, vKeyFramePoses_[i].first, vKeyFramePoses_[i].second, 0.05f);
+
+                // Hubungkan garis graf ke keyframe sebelumnya
+                if (i > 0)
+                {
+                    geometry_msgs::Point p1, p2;
+                    p1.x = vKeyFramePoses_[i].first.x();
+                    p1.y = vKeyFramePoses_[i].first.y();
+                    p1.z = vKeyFramePoses_[i].first.z();
+
+                    p2.x = vKeyFramePoses_[i-1].first.x();
+                    p2.y = vKeyFramePoses_[i-1].first.y();
+                    p2.z = vKeyFramePoses_[i-1].first.z();
+
+                    covisMarker.points.push_back(p1);
+                    covisMarker.points.push_back(p2);
+                }
+            }
+            kfMarkerPub_.publish(kfMarker);
+            covisGraphPub_.publish(covisMarker);
+        }
+
+        // 3. Publikasikan Titik Fitur Aktif ORB-SLAM3 (Colored Feature Points)
+        std::vector<ORB_SLAM3::MapPoint*> vpTrackedMPs = mpSLAM->GetTrackedMapPoints();
+        if (!vpTrackedMPs.empty())
+        {
+            Eigen::Matrix3f R_align;
+            R_align <<  0.0f,  0.0f,  1.0f,
+                       -1.0f,  0.0f,  0.0f,
+                        0.0f, -1.0f,  0.0f;
+
+            sensor_msgs::PointCloud2 cloudMsg;
+            cloudMsg.header.stamp = stamp;
+            cloudMsg.header.frame_id = strOdomFrame_;
+            cloudMsg.height = 1;
+            cloudMsg.width = vpTrackedMPs.size();
+            cloudMsg.is_dense = false;
+
+            sensor_msgs::PointCloud2Modifier modifier(cloudMsg);
+            modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
+            modifier.resize(vpTrackedMPs.size());
+
+            sensor_msgs::PointCloud2Iterator<float> iter_x(cloudMsg, "x");
+            sensor_msgs::PointCloud2Iterator<float> iter_y(cloudMsg, "y");
+            sensor_msgs::PointCloud2Iterator<float> iter_z(cloudMsg, "z");
+            sensor_msgs::PointCloud2Iterator<uint8_t> iter_rgb(cloudMsg, "rgb");
+
+            for (size_t i = 0; i < vpTrackedMPs.size(); ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb)
+            {
+                ORB_SLAM3::MapPoint* pMP = vpTrackedMPs[i];
+                if (!pMP || pMP->isBad())
+                {
+                    *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
+                    continue;
+                }
+
+                Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
+                *iter_x = pos.x();
+                *iter_y = pos.y();
+                *iter_z = pos.z();
+
+                uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
+                uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
+                uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
+
+                if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
+
+                iter_rgb[0] = b;
+                iter_rgb[1] = g;
+                iter_rgb[2] = r;
+            }
+            sparsePointsPub_.publish(cloudMsg);
+        }
     }
 
     void RunDirectCaptureLoop()
@@ -351,6 +559,11 @@ private:
     ros::Publisher posePub_;
     ros::Publisher statusPub_;
     ros::Publisher camInfoPub_;
+    ros::Publisher camMarkerPub_;
+    ros::Publisher kfMarkerPub_;
+    ros::Publisher covisGraphPub_;
+    ros::Publisher sparsePointsPub_;
+    std::vector<std::pair<Eigen::Vector3f, Eigen::Matrix3f>> vKeyFramePoses_;
     tf2_ros::TransformBroadcaster tfBroadcaster_;
 
     float fx_, fy_, cx_, cy_;

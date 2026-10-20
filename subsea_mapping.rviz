@@ -78,6 +78,57 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
+    # 2b. ORB-SLAM3 Live Features (Identik dengan Pangolin Viewport)
+    # -----------------------------------------------------------------------
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /orb_slam3/camera_marker
+      Name: ORB-SLAM3 Current Camera (Red)
+      Queue Size: 5
+      Unreliable: false
+      Value: true
+
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /orb_slam3/keyframe_markers
+      Name: ORB-SLAM3 KeyFrames (Blue)
+      Queue Size: 5
+      Unreliable: false
+      Value: true
+
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /orb_slam3/covisibility_graph
+      Name: ORB-SLAM3 Covisibility Graph (Green)
+      Queue Size: 5
+      Unreliable: false
+      Value: true
+
+    - Alpha: 1.0
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 5.0
+        Min Value: 0.25
+        Value: true
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: RGB8
+      Decay Time: 0.0
+      Enabled: true
+      Name: ORB-SLAM3 Feature Points (Colored)
+      Position Transformer: XYZ
+      Queue Size: 5
+      Selectable: true
+      Size (Pixels): 5
+      Size (m): 0.01
+      Style: Points
+      Topic: /orb_slam3/sparse_points
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: false
+      Value: true
+
+    # -----------------------------------------------------------------------
     # 3. TF Frames (Disabled by default to avoid visual clutter)
     # -----------------------------------------------------------------------
     - Class: rviz/TF
