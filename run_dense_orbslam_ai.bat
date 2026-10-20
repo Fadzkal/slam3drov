@@ -39,14 +39,9 @@ start "MJPEG Webcam Bridge" python mjpeg_webcam_bridge.py %CAM_ARG%
 echo Menunggu kamera siap (3 detik)...
 timeout /t 3 /nobreak >nul
 
-set PORT=8088
-if exist "bridge_port.txt" (
-    set /p PORT=<bridge_port.txt
-)
-
 echo.
 echo [*] Meluncurkan Pipeline Fusi: ORB-SLAM3 + Depth AI + RTAB-Map + RViz...
-wsl -d Ubuntu-20.04 bash -c "source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; export DISPLAY=:0; roslaunch subsea_3d_mapping live_orbslam_dense_mapping.launch camera_source:=http://localhost:%PORT%/stream.mjpg"
+wsl -d Ubuntu-20.04 -- bash -c "export DISPLAY=:0 && ~/slam_ws/run_dense_orbslam_webcam.sh"
 pause
 goto end
 
@@ -54,7 +49,7 @@ goto end
 echo.
 echo [*] Menjalankan Fusi pada Rekaman Video ROV Kontainer Bawah Laut...
 echo [*] Meluncurkan Pipeline: ORB-SLAM3 Tracking + Depth AI MiDaS + RTAB-Map...
-wsl -d Ubuntu-20.04 bash -c "source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; export DISPLAY=:0; roslaunch subsea_3d_mapping live_orbslam_dense_mapping.launch camera_source:=/mnt/c/remote_ROV/videos/YTDown.com_YouTube_Media_g4bUv6Fx3Pk_Site-113-A-Steel-Container-from-a-BlueROV2_001_1080p.mp4"
+wsl -d Ubuntu-20.04 -- bash -c "export DISPLAY=:0 && ~/slam_ws/run_dense_orbslam_rovvideo.sh"
 pause
 goto end
 

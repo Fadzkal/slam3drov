@@ -231,18 +231,28 @@ private:
     void RunDirectCaptureLoop()
     {
         cv::VideoCapture cap;
-        if (strCameraSource_.length() == 1 && isdigit(strCameraSource_[0]))
+        int retry = 0;
+        while (!cap.isOpened() && retry < 6 && ros::ok())
         {
-            cap.open(stoi(strCameraSource_));
-        }
-        else
-        {
-            cap.open(strCameraSource_);
+            if (retry > 0)
+            {
+                ROS_WARN("[WARN] Mencoba menghubungkan kembali ke kamera (%d/5)...", retry);
+                ros::Duration(1.0).sleep();
+            }
+            if (strCameraSource_.length() == 1 && isdigit(strCameraSource_[0]))
+            {
+                cap.open(stoi(strCameraSource_));
+            }
+            else
+            {
+                cap.open(strCameraSource_);
+            }
+            retry++;
         }
 
         if (!cap.isOpened())
         {
-            ROS_ERROR("[ERROR] Gagal membuka sumber kamera: %s", strCameraSource_.c_str());
+            ROS_ERROR("[ERROR] Gagal membuka sumber kamera: %s setelah beberapa percobaan.", strCameraSource_.c_str());
             return;
         }
 
