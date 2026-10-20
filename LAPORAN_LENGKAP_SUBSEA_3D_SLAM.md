@@ -374,6 +374,53 @@ graph TD
 - **Wujud Benda Terlihat Utuh**: Seluruh permukaan objek fisik langsung membentuk model 3D padat (*dense surface mesh*), bukan sekadar titik-titik mengambang di udara.
 - **Bebas Drift & Lompatan Liar**: Trajektori terkunci secara stabil karena diarahkan oleh bundle adjustment dan loop closing dari ORB-SLAM3.
 - **Format Universal**: Model 3D padat yang dihasilkan dapat diekspor langsung ke format `.ply` menggunakan [`export_3d_map.bat`](file:///c:/remote_ROV/export_3d_map.bat) untuk diinspeksi di browser Web Three.js ([`view_slam_3d_web.html`](file:///c:/remote_ROV/view_slam_3d_web.html)).
+---
 
+## BAB X: PELURUSAN KOORDINAT HORISONTAL & INTEGRASI LENGKAP VISUALISASI ORB-SLAM3 KE RVIZ
 
+### 10.1 Latar Belakang & Masalah Orientasi Vertikal
+
+Pada tahap awal integrasi, awan titik 3D padat berhasil terbentuk dengan tekstur warna asli. Namun, terdapat deviasi geometris: seluruh awan titik dan trajektori kamera mengarah vertikal ke atas (*shooting upwards* ke langit-langit). 
+
+Penyebab matematisnya adalah perbedaan konvensi koordinat:
+1. **Konvensi Optik ORB-SLAM3**: $+Z$ adalah kedalaman maju (*forward*), $+X$ adalah kanan (*right*), dan $+Y$ adalah bawah (*down*).
+2. **Konvensi Dunia ROS RViz (`odom`)**: $+X$ adalah maju (*forward*), $+Y$ adalah kiri (*left*), dan $+Z$ adalah atas (*up*).
+
+Akibatnya, translasi $+Z$ dari ORB-SLAM3 dipetakan secara mentah ke $+Z$ di ROS, sehingga gerakan maju kamera terbaca sebagai gerakan naik lurus ke atas.
+
+### 10.2 Matriks Transformasi Pelurusan Horisontal ($R_{align}$)
+
+Untuk mensejajarkan dunia optik kamera dengan bidang horizontal grid RViz, diimplementasikan matriks rotasi $SO(3)$:
+
+$$
+R_{align} = \begin{bmatrix}
+0 & 0 & 1 \\
+-1 & 0 & 0 \\
+0 & -1 & 0
+\end{bmatrix}
+$$
+
+Dengan transformasi ini:
+- $X_{odom} = Z_{orb}$ (kamera bergerak maju mendatar di sepanjang lantai grid RViz).
+- $Y_{odom} = -X_{orb}$ (kamera bergerak ke kiri/kanan mendatar).
+- $Z_{odom} = -Y_{orb}$ (kamera bergerak naik/turun tegak lurus lantai).
+
+Hasilnya: lantai ruangan duduk datar di bidang dasar RViz, dinding berdiri tegak secara vertikal, dan seluruh awan titik 3D padat berorientasi fisik secara 100% natural.
+
+### 10.3 Integrasi Penuh Seluruh Fitur Visual ORB-SLAM3 ke RViz
+
+Seluruh elemen visual yang ada pada jendela OpenGL Pangolin kini direplikasi dan disiarkan langsung ke RViz:
+
+1. **Current Camera Wireframe Pyramid (Merah)**:
+   - Topik: `/orb_slam3/camera_marker` (`visualization_msgs/Marker`)
+   - Merender piramida kawat 8 rusuk berwarna merah terang yang bergerak aktif mengikuti orientasi dan posisi kamera real-time (30 FPS).
+2. **KeyFrame Pyramids (Biru)**:
+   - Topik: `/orb_slam3/keyframe_markers` (`visualization_msgs/Marker`)
+   - Menyimpan dan menampilkan piramida kawat biru di setiap posisi pose kunci yang dicatat oleh ORB-SLAM3.
+3. **Covisibility Graph (Hijau Neon)**:
+   - Topik: `/orb_slam3/covisibility_graph` (`visualization_msgs/Marker`)
+   - Menghubungkan titik-titik pusat keyframe dengan garis hijau terang untuk memperlihatkan jaringan keterhubungan visibilitas antar-pose.
+4. **Tracked MapPoints (Awan Titik Fitur Berwarna)**:
+   - Topik: `/orb_slam3/sparse_points` (`sensor_msgs/PointCloud2`)
+   - Menampilkan titik-titik fitur FAST/ORB dengan warna RGB kamera asli tepat di ruang 3D RViz berdampingan dengan awan titik padat Depth AI.
 
