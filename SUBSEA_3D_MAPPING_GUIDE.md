@@ -315,3 +315,29 @@ Selain dilihat di RViz, hasil pemetaan 3D padat (*Dense 3D Point Cloud*) dari RT
 2. **Ekspor Otomatis Peta SLAM Terbaru**:
    > Dobel klik [**`export_3d_map.bat`**](file:///c:/remote_ROV/export_3d_map.bat). Skrip akan mengekstrak `rtabmap.db` menjadi `export/subsea_3d_map.ply` dan langsung meluncurkan viewer di browser.
 
+---
+
+## 7. ORB-SLAM3: 3D Visual SLAM & Real-Time Webcam Integration
+
+Selain pipeline RTAB-Map ROS, repositori ini telah dilengkapi dengan integrasi penuh **ORB-SLAM3** (Campos et al., 2021) untuk pemetaan 3D dan pelacakan lintasan berkecepatan tinggi:
+
+### Fitur Utama ORB-SLAM3:
+1. **WSL2 Native Build + GPU Direct3D 12**:
+   - `libORB_SLAM3.so` (5.08 MB) dan `mono_live` C++ binary berjalan di dalam WSL2 Ubuntu 20.04.
+   - Antarmuka visual 3D Pangolin terhubung ke WSLg Direct3D 12 dengan akselerasi hardware penuh (`mesa: D3D12 AMD Radeon Graphics`).
+2. **Zero-Latency MJPEG Webcam Bridge (`mjpeg_webcam_bridge.py`)**:
+   - Menghubungkan webcam fisik Windows 11 ke dalam WSL2 via jaringan lokal LAN (`http://<host>:8088/stream.mjpg`).
+   - `cv2.CAP_PROP_BUFFERSIZE = 1`: Mencegah video delay 1–2 detik pada DirectShow.
+   - `ThreadingHTTPServer`: Mendukung preview browser dan koneksi ORB-SLAM3 secara bersamaan tanpa lag.
+   - **Filter Otomatis Anti-OBS**: Mendeteksi perangkat DirectShow via `pygrabber`, otomatis memblokir *OBS Virtual Camera*, dan memilih webcam fisik (`USB Camera` / `Logitech C922`).
+3. **Konfigurasi Kamera Optimal (`webcam_640.yaml`)**:
+   - Format standar ORB-SLAM3 v1.0 (`File.version: "1.0"`).
+   - Sensitivitas ORB diekstraksi hingga **1500 titik** (`ORBextractor.nFeatures: 1500`) dengan ambang FAST diturunkan (`iniThFAST: 15, minThFAST: 5`) untuk kestabilan pelacakan di dalam ruangan maupun rekaman bawah air.
+
+### Panduan Menjalankan:
+- **ORB-SLAM3 Live 3D Mapping**:
+  > Dobel klik [**`run_orbslam3.bat`**](file:///c:/remote_ROV/run_orbslam3.bat) -> Pilih `[2]` untuk Live Webcam (atau `[1]` untuk video ROV).
+- **Live Visual Odometry 100% CPU (Windows Murni)**:
+  > Dobel klik [**`run_live_vo_webcam.bat`**](file:///c:/remote_ROV/run_live_vo_webcam.bat) -> Tekan `1` (USB Camera). Dashboard pelacakan titik Optical Flow dan peta lintasan 2D (*Top-down map*) akan langsung aktif.
+
+

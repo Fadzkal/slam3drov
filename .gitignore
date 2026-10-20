@@ -21,6 +21,8 @@ videos/
 
 # Logs & temp
 *.log
+bridge_port.txt
+KeyFrameTrajectory.txt
 scratch/
 test_clone/
 .vscode/

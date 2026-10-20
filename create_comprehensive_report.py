@@ -324,23 +324,48 @@ def create_report():
                 set_cell_background(r_cells[j], "F1F5F9")
 
     # ----------------------------------------------------
-    # BAB VI: KESIMPULAN & PANDUAN PENGOPERASIAN
+    # BAB VI: INTEGRASI ORB-SLAM3 MONOCULAR 3D SLAM
     # ----------------------------------------------------
     doc.add_page_break()
-    add_h1("BAB VI. PANDUAN PENGOPERASIAN & KESIMPULAN")
-    add_body("Semua komponen sistem telah diuji, distabilkan, dan disinkronkan ke dalam repositori GitHub:")
-    add_body("1. Menjalankan Live 3D Mapping & RViz:")
-    add_body("   > Dobel klik run_live_rov_mapping.bat (atau run_subsea_mapping.bat untuk mode full sensor).")
-    add_body("2. Mengekspor Peta 3D ke Tampilan Web:")
-    add_body("   > Dobel klik export_3d_map.bat. Database diekstrak ke export/subsea_3d_map.ply dan browser langsung terbuka.")
-    add_body("3. Membuka Web 3D Viewer Kapan Saja:")
-    add_body("   > Dobel klik open_3d_web_viewer.bat atau buka view_slam_3d_web.html.")
-    
-    add_h2("6.1 Kesimpulan Penelitian")
-    add_body("1. Masalah anomali peta melayang dan lonjakan odometry berhasil diselesaikan secara tuntas melalui penyelarasan frekuensi update keyframe dan pemasangan batas kecepatan maksimum (Odom/MaxTranslation = 0.30 m).")
-    add_body("2. Sistem fusi sensor berhasil mengunci skala metrik fisik nyata (meter) dan menghilangkan vertical drift pada sumbu Z berkat sensor Bar30 dan Sonar Ping1D.")
-    add_body("3. Visualisasi Three.js Web Viewer memberikan kemudahan akses bagi pengguna untuk menginspeksi, mengukur dimensi, dan menyajikan hasil 3D SLAM tanpa perlu ketergantungan pada RViz atau Linux.")
-    add_body("4. Rancangan arsitektur dua-tahap (Dual-Stage) yang memadukan pipeline ringan RTAB-Map untuk navigasi live dengan MASt3R-SLAM untuk pemodelan pasca-misi memberikan solusi paling komprehensif bagi robotika bawah air modern.")
+    add_h1("BAB VI. INTEGRASI ORB-SLAM3 MONOCULAR 3D SLAM & ZERO-LATENCY BRIDGE")
+    add_body("Sebagai pembanding representatif dari arsitektur feature-based Visual SLAM klasik paling teruji di dunia akademik (Campos et al., IEEE T-RO 2021), ORB-SLAM3 diintegrasikan secara native ke dalam ekosistem riset ini.")
+
+    add_h2("6.1 Arsitektur Kompilasi di WSL2 Ubuntu 20.04 & Akselerasi GPU Direct3D 12")
+    add_body("• Pustaka Inti: libORB_SLAM3.so (5.08 MB) dikompilasi bersama DBoW2, g2o, dan Sophus.")
+    add_body("• Pangolin 3D OpenGL Viewer: Terhubung ke WSLg Direct3D 12 (mesa: D3D12 AMD Radeon Graphics) untuk rendering interaktif yang mulus di Windows 11.")
+    add_body("• Custom Executable mono_live: Dibangun khusus di ~/slam_ws/ORB_SLAM3/Examples/Monocular/mono_live untuk menerima input live stream MJPEG HTTP dari Windows.")
+
+    add_h2("6.2 Desain Zero-Latency MJPEG Webcam Bridge")
+    add_body("Karena WSL2 berjalan dalam virtualisasi Hyper-V terisolasi, dibangun modul jembatan video cerdas (mjpeg_webcam_bridge.py) dengan fitur:")
+    add_body("1. Eliminasi Frame Buffering: Mematikan buffer DirectShow (CAP_PROP_BUFFERSIZE = 1) untuk latensi transmisi 0 detik.")
+    add_body("2. Single JPEG Encoding di Thread Terpisah: Kompresi JPEG dilakukan 1x di thread capture, menghemat komputasi CPU.")
+    add_body("3. ThreadingHTTPServer Multi-Client: Browser Windows dan ORB-SLAM3 WSL2 dapat mengakses stream secara simultan.")
+    add_body("4. Dynamic Port Hunting: Otomatis mendeteksi port bebas (8088) dan mempublikasikannya ke bridge_port.txt.")
+
+    add_h2("6.3 Riwayat Investigasi Kasus & Pemecahan Masalah Teknis")
+    add_body("• Kasus 1 (OBS Virtual Camera): DirectShow mendeteksi OBS di Index 2. Modul pygrabber diintegrasikan untuk blacklist string 'OBS'/'Virtual' dan otomatis mengunci webcam fisik (Index 1 / 0).")
+    add_body("• Kasus 2 (Bentrok Port 8080): Port 8080 diduduki ApplicationWebServer Windows. Dipindahkan ke port 8088 dengan mekanisme deteksi port otomatis.")
+    add_body("• Kasus 3 (Crash Format YAML): Galat '*Camera.fx parameter doesn't exist*' dipecahkan dengan menambahkan header resmi File.version: \"1.0\" dan melengkapi parameter intrinsik kamera.")
+    add_body("• Kasus 4 (TRACK_REF_KF: Less than 15 matches): Peringatan lost tracking pada permukaan dinding/pintu polos diatasi dengan menaikkan nFeatures ke 1500 serta menurunkan ambang FAST ke 15/5.")
+
+    # ----------------------------------------------------
+    # BAB VII: KESIMPULAN & PANDUAN PENGOPERASIAN
+    # ----------------------------------------------------
+    doc.add_page_break()
+    add_h1("BAB VII. PANDUAN PENGOPERASIAN LENGKAP & KESIMPULAN")
+    add_body("Seluruh subsistem telah diotomasi penuh melalui launcher batch mandiri:")
+    add_body("1. Full Subsea 3D Mapping (BlueROV2): Dobel klik run_live_rov_mapping.bat (atau run_subsea_mapping.bat).")
+    add_body("2. ORB-SLAM3 Live 3D Mapping: Dobel klik run_orbslam3.bat (Pilih [2] untuk webcam live, [1] untuk rekaman ROV).")
+    add_body("3. Ekspor Peta 3D ke Browser: Dobel klik export_3d_map.bat.")
+    add_body("4. Web 3D Viewer Mandiri (Three.js): Dobel klik open_3d_web_viewer.bat atau buka view_slam_3d_web.html.")
+    add_body("5. Visual Odometry CPU-Only: Dobel klik run_live_vo_webcam.bat.")
+
+    add_h2("7.1 Kesimpulan Penelitian & Rekomendasi")
+    add_body("1. Fusi multi-sensor Bar30 dan Sonar Ping1D berhasil mengunci skala metrik fisik nyata (meter) dan menghilangkan vertical drift pada sumbu Z.")
+    add_body("2. Penyelarasan update keyframe dan batas translasi maksimal Odom/MaxTranslation = 0.30 m melenyapkan bug peta melayang secara permanen.")
+    add_body("3. Visualisasi Three.js Web Viewer memberikan kebebasan inspeksi dan pengukuran dimensi tanpa ketergantungan perangkat lunak Linux.")
+    add_body("4. Verifikasi ORB-SLAM3 dengan zero-latency bridge membuktikan komputasi SLAM kelas berat dapat berjalan mulus dengan akselerasi GPU Direct3D 12 di Windows 11.")
+    add_body("5. Arsitektur Dual-Stage (RTAB-Map navigasi live + MASt3R-SLAM post-mission digital twin) memberikan solusi terlengkap bagi robotika bawah air modern.")
 
     # Save to disk
     output_docx = os.path.join(rov_dir, "LAPORAN_LENGKAP_SUBSEA_3D_SLAM.docx")

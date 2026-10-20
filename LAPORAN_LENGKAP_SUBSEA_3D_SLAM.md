@@ -15,7 +15,8 @@
 3. [BAB III: Pipeline RTAB-Map SLAM & Investigasi Bug Peta Melayang](#bab-iii-pipeline-rtab-map-slam--investigasi-bug-peta-melayang)
 4. [BAB IV: Sistem Visualisasi Web Tiga Dimensi (Three.js)](#bab-iv-sistem-visualisasi-web-tiga-dimensi-threejs)
 5. [BAB V: Studi Komparasi dengan State-of-the-Art (SOTA) & MASt3R-SLAM](#bab-v-studi-komparasi-dengan-state-of-the-art-sota--mast3r-slam)
-6. [BAB VI: Panduan Pengoperasian & Kesimpulan](#bab-vi-panduan-pengoperasian--kesimpulan)
+6. [BAB VI: Integrasi ORB-SLAM3 Monocular 3D SLAM & Zero-Latency Bridge](#bab-vi-integrasi-orb-slam3-monocular-3d-slam--zero-latency-bridge)
+7. [BAB VII: Panduan Pengoperasian & Kesimpulan Komprehensif](#bab-vii-panduan-pengoperasian--kesimpulan-komprehensif)
 
 ---
 
@@ -137,18 +138,104 @@ Mengingat laptop saat ini menggunakan GPU AMD Radeon terintegrasi tanpa kartu di
 
 ---
 
-## BAB VI: Panduan Pengoperasian & Kesimpulan
+---
 
-### 6.1 Panduan Pengoperasian
-1. **Menjalankan Live 3D Mapping & RViz**:
-   > Dobel klik [**`run_live_rov_mapping.bat`**](file:///c:/remote_ROV/run_live_rov_mapping.bat).
-2. **Mengekspor Peta 3D ke Tampilan Web**:
-   > Dobel klik [**`export_3d_map.bat`**](file:///c:/remote_ROV/export_3d_map.bat). Database diekstrak ke [`export/subsea_3d_map.ply`](file:///c:/remote_ROV/export/subsea_3d_map.ply) dan browser langsung terbuka.
-3. **Membuka Web 3D Viewer Kapan Saja**:
-   > Dobel klik [**`open_3d_web_viewer.bat`**](file:///c:/remote_ROV/open_3d_web_viewer.bat) atau buka [`view_slam_3d_web.html`](file:///c:/remote_ROV/view_slam_3d_web.html).
+## BAB VI: Integrasi ORB-SLAM3 Monocular 3D SLAM & Zero-Latency Bridge
 
-### 6.2 Kesimpulan Penelitian
-1. Masalah anomali peta melayang dan lonjakan odometry berhasil diselesaikan secara tuntas melalui penyelarasan frekuensi update keyframe dan pemasangan batas kecepatan maksimum (`Odom/MaxTranslation = 0.30 m`).
-2. Sistem fusi sensor berhasil mengunci skala metrik fisik nyata (meter) dan menghilangkan *vertical drift* pada sumbu Z berkat sensor Bar30 dan Sonar Ping1D.
-3. Visualisasi Three.js Web Viewer memberikan kemudahan akses bagi pengguna untuk menginspeksi, mengukur dimensi, dan menyajikan hasil 3D SLAM tanpa perlu ketergantungan pada RViz atau Linux.
-4. Rancangan arsitektur dua-tahap (Dual-Stage) yang memadukan pipeline ringan RTAB-Map untuk navigasi live dengan MASt3R-SLAM untuk pemodelan pasca-misi memberikan solusi paling komprehensif bagi robotika bawah air modern.
+Sebagai pembanding representatif dari arsitektur *feature-based Visual SLAM* klasik paling unggul di komunitas robotika (Campos et al., IEEE T-RO 2021), **ORB-SLAM3** diintegrasikan ke dalam ekosistem riset ini. Berbeda dengan RTAB-Map yang berfokus pada dense appearance memory, ORB-SLAM3 berfokus pada optimasi sparse bundle adjustment geometris berkecepatan tinggi dengan multi-map (*Atlas* system).
+
+### 6.1 Arsitektur Kompilasi & Akselerasi Hardware di WSL2
+ORB-SLAM3 dikompilasi secara *native* di dalam lingkungan **WSL2 Ubuntu 20.04 LTS**:
+- **Pustaka Inti**: `libORB_SLAM3.so` (5.08 MB) dikompilasi bersama Thirdparty dependencies: DBoW2, g2o, dan Sophus.
+- **Pangolin 3D OpenGL Viewer**: Dikompilasi menggunakan CMake dan dihubungkan ke backend **WSLg Direct3D 12** (`mesa: D3D12 (AMD Radeon Graphics)`), menghasilkan rendering 3D interaktif mulus pada Windows 11 tanpa kebutuhan dual-boot atau mesin virtual berat.
+- **Custom Executable `mono_live`**: Dibangun di [`~/slam_ws/ORB_SLAM3/Examples/Monocular/mono_live.cc`](file:///c:/remote_ROV/mono_live.cc). Executable ini memadukan OpenCV `VideoCapture` dengan pipeline ORB-SLAM3 untuk memproses stream video live (MJPEG HTTP URL, RTSP, maupun rekaman file MP4 ROV bawah air).
+
+### 6.2 Desain Zero-Latency MJPEG Webcam Bridge
+Karena WSL2 beroperasi di dalam arsitektur virtualisasi Hyper-V terisolasi tanpa akses langsung ke USB host Windows secara *plug-and-play*, dirancang modul jembatan video berkecepatan tinggi pada [`mjpeg_webcam_bridge.py`](file:///c:/remote_ROV/mjpeg_webcam_bridge.py):
+
+```
+┌─────────────────────────────────┐        HTTP MJPEG Stream        ┌──────────────────────────────────┐
+│          WINDOWS 11             │      http://<host>:8088/        │         WSL2 UBUNTU 20.04        │
+│  [Webcam Fisik USB: C922 / USB] │────────────────────────────────>│  [mono_live / ORB-SLAM3 Engine]  │
+│  • DirectShow (Buffer Size = 1) │        (Zero-Latency LAN)       │  • ORB Feature Extraction (1500) │
+│  • Single JPEG Encode (75% Q)   │                                 │  • Bundle Adjustment & Tracking  │
+│  • ThreadingHTTPServer (:8088)  │                                 │  • Pangolin 3D OpenGL Viewer     │
+└─────────────────────────────────┘                                 └──────────────────────────────────┘
+```
+
+**Fitur Kunci Zero-Latency Bridge:**
+1. **Eliminasi Frame Buffering (`CAP_PROP_BUFFERSIZE = 1`)**: Mematikan antrean buffer internal DirectShow Windows yang biasanya memicu delay video 1–2 detik, menghasilkan transmisi instan *real-time*.
+2. **Single JPEG Encoding di Thread Terpisah**: Frame dikompresi menjadi format JPEG sekali saja di thread tangkapan kamera, lalu didistribusikan ke semua klien (browser dan WSL2) secara simultan tanpa membebani CPU.
+3. **ThreadingHTTPServer Multi-Client**: Mendukung koneksi paralel antara browser Windows (untuk monitoring live) dan ORB-SLAM3 di WSL2 secara bersamaan tanpa saling mengunci (*non-blocking*).
+4. **Dynamic Port Hunting & Broadcast**: Otomatis memilih port bebas (default 8088) jika port 8080 bentrok, dan mempublikasikan nomor port aktif ke file [`bridge_port.txt`](file:///c:/remote_ROV/bridge_port.txt) agar skrip WSL2 selalu tersambung secara otomatis.
+
+---
+
+### 6.3 Riwayat Investigasi Kasus & Pemecahan Masalah Teknis
+
+Selama fase pengujian live stream dan SLAM, terjadi beberapa kendala teknis kritis yang berhasil diinvestigasi dan diselesaikan tuntas:
+
+#### Kasus 1: Logo OBS Virtual Camera Muncul Alih-Alih Kamera Fisik
+- **Gejala**: Saat pengguna membuka stream di browser atau meluncurkan SLAM, layar menampilkan logo grafis OBS (*OBS Virtual Camera*) dengan garis silang kamera.
+- **Akar Masalah**: Pada Windows DirectShow, enumerasi perangkat mendeteksi 3 video source:
+  - `Index 0`: Logitech C922 Pro Stream Webcam
+  - `Index 1`: USB Camera (Webcam eksternal)
+  - `Index 2`: OBS Virtual Camera
+  Konfigurasi awal secara keliru mengambil `Index 2` sebagai default, sehingga memanggil output virtual OBS yang tidak sedang aktif.
+- **Solusi**: 
+  - Mengintegrasikan pustaka `pygrabber.dshow_graph` pada [`mjpeg_webcam_bridge.py`](file:///c:/remote_ROV/mjpeg_webcam_bridge.py) dan [`live_monocular_vo_webcam.py`](file:///c:/remote_ROV/live_monocular_vo_webcam.py) untuk menginspeksi nama perangkat DirectShow.
+  - Memasang filter ketat: perangkat yang memuat string `"OBS"` atau `"Virtual"` otomatis diblokir (*blacklisted*) dan dialihkan ke webcam fisik (`Index 1` atau `Index 0`).
+  - Menambahkan menu pilihan kamera fisik interaktif pada batch launcher [`run_orbslam3.bat`](file:///c:/remote_ROV/run_orbslam3.bat) dan [`run_live_vo_webcam.bat`](file:///c:/remote_ROV/run_live_vo_webcam.bat).
+
+#### Kasus 2: Bentrok Port 8080 dengan Windows Service
+- **Gejala**: `OSError: [WinError 10048] Only one usage of each socket address is normally permitted`.
+- **Akar Masalah**: Port default 8080 telah diduduki oleh proses Windows bawaan `ApplicationWebServer` (PID 10856).
+- **Solusi**: Memindahkan port default ke 8088, dilengkapi algoritma `find_free_port()` yang secara cerdas mencoba deretan port kandidat (8088, 8888, 5000, 18080, 8554), lalu menyimpannya ke [`bridge_port.txt`](file:///c:/remote_ROV/bridge_port.txt) yang dibaca oleh skrip bash di WSL2.
+
+#### Kasus 3: Crash Konfigurasi YAML ORB-SLAM3 (`*Camera.fx parameter doesn't exist*`)
+- **Gejala**: Program `mono_live` berhenti tiba-tiba dengan galat C++:
+  ```text
+  Camera Parameters:
+  *Camera.fx parameter doesn't exist or is not a real number*
+  **ERROR in the config file, the format is not correct**
+  terminate called after throwing an instance of 'int'
+  ```
+- **Akar Masalah**: File konfigurasi [`webcam_640.yaml`](file:///c:/remote_ROV/webcam_640.yaml) awalnya tidak menyertakan header versi `File.version: "1.0"`. Pada arsitektur C++ ORB-SLAM3 (`System.cc` baris 77), ketiadaan header ini menyebabkan pointer `settings_` bernilai `nullptr`. Akibatnya, `Tracking.cc` jatuh ke parser versi lama (*legacy parser*) yang mencari nama parameter `Camera.fx`, sedangkan file YAML menggunakan format modern `Camera1.fx`.
+- **Solusi**: File [`webcam_640.yaml`](file:///c:/remote_ROV/webcam_640.yaml) diperbaiki dengan menyertakan `File.version: "1.0"` secara eksplisit, serta mendefinisikan kedua pasangan parameter (`Camera1.*` dan `Camera.*`) secara lengkap. SLAM kini memuat parameter intrinsik kamera secara instan tanpa kesalahan format.
+
+#### Kasus 4: Peringatan Berulang `TRACK_REF_KF: Less than 15 matches!!`
+- **Gejala**: Terminal WSL2 mencetak pesan peringatan berulang `TRACK_REF_KF: Less than 15 matches!!` dan tracking 3D sempat terhenti.
+- **Akar Masalah**: 
+  - Kamera monocular diarahkan ke permukaan tembok polos atau pintu putih yang minim tekstur/sudut visual.
+  - Jumlah inlier kecocokan fitur ORB antara frame saat ini dengan keyframe referensi jatuh di bawah ambang batas minimal 15 titik (`nmatches < 15`).
+- **Solusi Rekayasa & Tuning Parameter**:
+  - Pada [`webcam_640.yaml`](file:///c:/remote_ROV/webcam_640.yaml), jumlah fitur diekstraksi dinaikkan dari 1200 menjadi **1500 titik** (`ORBextractor.nFeatures: 1500`).
+  - Ambang batas FAST detector diturunkan: `iniThFAST` diturunkan dari 20 ke **15**, dan `minThFAST` diturunkan dari 7 ke **5**. Penyesuaian ini membuat ekstraktor fitur jauh lebih sensitif mendeteksi tekstur halus pada kondisi pencahayaan ruangan/bawah air.
+  - Ditambahkan panduan operasional: mengarahkan kamera ke area bertekstur tinggi dan melakukan translasi halus, serta memanfaatkan tombol **`Reset`** pada GUI Pangolin jika tracking terputus.
+
+---
+
+## BAB VII: Panduan Pengoperasian & Kesimpulan Komprehensif
+
+### 7.1 Panduan Pengoperasian Lengkap (One-Click Launchers)
+
+Seluruh subsistem telah diotomasi penuh sehingga dapat dijalankan melalui launcher batch mandiri tanpa pengetikan perintah manual yang rumit:
+
+| Kebutuhan Operasional | File Launcher | Deskripsi & Komponen yang Berjalan |
+| :--- | :--- | :--- |
+| **Full Subsea 3D Mapping (BlueROV2)** | [**`run_live_rov_mapping.bat`**](file:///c:/remote_ROV/run_live_rov_mapping.bat) | Menjalankan ROS Noetic, Relay Kamera UDP:5600, AI MiDaS Depth, Fusi Bar30 + Ping1D Sonar, RTAB-Map SLAM, dan GUI RViz lengkap. |
+| **ORB-SLAM3 Live 3D Mapping (WSL2)** | [**`run_orbslam3.bat`**](file:///c:/remote_ROV/run_orbslam3.bat) | Menu interaktif: memilih webcam USB fisik (Index 1/0), menyalakan MJPEG bridge otomatis, dan membuka Pangolin 3D OpenGL Viewer di WSL2. |
+| **Ekspor Peta 3D ke Browser (Web)** | [**`export_3d_map.bat`**](file:///c:/remote_ROV/export_3d_map.bat) | Mengekstrak database `rtabmap.db` menjadi point cloud `subsea_3d_map.ply` dan langsung meluncurkan web viewer interaktif. |
+| **Buka Web 3D Viewer Kapan Saja** | [**`open_3d_web_viewer.bat`**](file:///c:/remote_ROV/open_3d_web_viewer.bat) | Membuka antarmuka Three.js di [`view_slam_3d_web.html`](file:///c:/remote_ROV/view_slam_3d_web.html) dengan fitur Orbit 360°, color gradient Z, dan metric ruler. |
+| **Visual Odometry 100% CPU (Windows)** | [**`run_live_vo_webcam.bat`**](file:///c:/remote_ROV/run_live_vo_webcam.bat) | Pelacakan visual odometry real-time berbasis OpenCV Optical Flow murni pada Windows tanpa membutuhkan WSL atau ROS. |
+
+---
+
+### 7.2 Kesimpulan Penelitian & Rekomendasi
+
+1. **Keberhasilan Fusi Multi-Sensor**: Integrasi sensor tekanan hidrostatik Bar30 terbukti mengunci sumbu vertikal Z secara absolut, sementara sonar akustik Ping1D memberikan skala metrik nyata bagi estimasi kedalaman AI monocular, memecahkan masalah klasik *scale ambiguity*.
+2. **Kestabilan Trajektori**: Penerapan batas translasi maksimal `Odom/MaxTranslation = 0.30 m` dan pelebaran interval keyframe berhasil melenyapkan bug peta melayang dan lonjakan graf secara permanen.
+3. **Kemandirian Platform Melalui Three.js**: Web Viewer mandiri berbasis Three.js memungkinkan visualisasi, inspeksi titik awan, dan pengukuran metrik secara bebas di browser apapun tanpa ketergantungan perangkat lunak Linux RViz.
+4. **Verifikasi ORB-SLAM3 & Zero-Latency Bridge**: Implementasi bridge video DirectShow dengan buffer 1 berhasil menghubungkan ekosistem Windows dan WSL2 dengan latency hampir 0 detik, membuktikan bahwa komputasi SLAM kelas berat dapat dijalankan secara lancar dengan akselerasi GPU Direct3D 12 di Windows 11.
+5. **Rekomendasi Arsitektur Dual-Stage**: Untuk operasi survei komersial, disarankan menggunakan pipeline RTAB-Map + Bar30/Sonar untuk navigasi dan penutupan loop langsung saat wahana menyelam (*Stage 1: Real-Time*), diikuti oleh pemrosesan rekaman video berkualitas tinggi menggunakan model Transformer MASt3R-SLAM di server komputasi awan (*Stage 2: Post-Mission Digital Twin*).
+

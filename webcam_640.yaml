@@ -1,0 +1,71 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# System & File Version
+#--------------------------------------------------------------------------------------------
+File.version: "1.0"
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters (640x480 PinHole Webcam)
+#--------------------------------------------------------------------------------------------
+Camera.type: "PinHole"
+
+# Calibration parameters for ORB-SLAM3 v1.0
+Camera1.fx: 520.0
+Camera1.fy: 520.0
+Camera1.cx: 320.0
+Camera1.cy: 240.0
+
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+Camera1.k3: 0.0
+
+# Legacy compatibility parameters
+Camera.fx: 520.0
+Camera.fy: 520.0
+Camera.cx: 320.0
+Camera.cy: 240.0
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+# Camera resolution & fps
+Camera.width: 640
+Camera.height: 480
+Camera.newWidth: 640
+Camera.newHeight: 480
+Camera.fps: 30
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+# Close/Far threshold. Baseline times.
+ThDepth: 40.0
+
+#--------------------------------------------------------------------------------------------
+# ORB Extractor Parameters (Sensitivitas Tinggi untuk Ruangan Indoor)
+#--------------------------------------------------------------------------------------------
+ORBextractor.nFeatures: 1500
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 15
+ORBextractor.minThFAST: 5
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters (Pangolin 3D OpenGL)
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0
+Viewer.imageViewScale: 1.0
