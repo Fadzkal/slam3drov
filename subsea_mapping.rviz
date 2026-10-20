@@ -25,10 +25,10 @@ Visualization Manager:
     # -----------------------------------------------------------------------
     # 1. Grid
     # -----------------------------------------------------------------------
-    - Alpha: 0.4
+    - Alpha: 0.5
       Cell Size: 1
       Class: rviz/Grid
-      Color: 50; 90; 130
+      Color: 200; 200; 200
       Enabled: true
       Line Style:
         Line Width: 0.02
@@ -41,14 +41,14 @@ Visualization Manager:
         Z: 0
       Plane: XY
       Plane Cell Count: 20
-      Reference Frame: map
+      Reference Frame: odom
       Value: true
 
     # -----------------------------------------------------------------------
     # 2. PointCloud2 (Real-Time AI Dense Depth Cloud from MiDaS ONNX)
-    # Visual permukaan 3D real-time tepat di depan lensa kamera
+    # Visual permukaan 3D real-time (Default OFF agar tidak menutupi visual ORB-SLAM3)
     # -----------------------------------------------------------------------
-    - Alpha: 1.0
+    - Alpha: 0.8
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
         Max Value: 5.0
@@ -60,22 +60,22 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0.0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
-      Name: PointCloud2
+      Name: PointCloud2 (Dense Depth)
       Position Transformer: XYZ
       Queue Size: 5
       Selectable: true
-      Size (Pixels): 4
-      Size (m): 0.025
-      Style: Flat Squares
+      Size (Pixels): 2
+      Size (m): 0.005
+      Style: Points
       Topic: /camera/depth/points
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: false
-      Value: true
+      Value: false
 
     # -----------------------------------------------------------------------
     # 2b. ORB-SLAM3 Live Features (Identik dengan Pangolin Viewport)
@@ -345,7 +345,7 @@ Visualization Manager:
 
   Enabled: true
   Global Options:
-    Background Color: 0; 0; 0
+    Background Color: 255; 255; 255
     Default Light: true
     Fixed Frame: odom
     Frame Rate: 30

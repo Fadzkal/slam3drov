@@ -107,11 +107,15 @@ class MonocularDepthNode:
         denom = max(p_high - p_low, 1e-4)
         disp_norm = (depth_clamped - p_low) / denom
         
-        # Metric depth mapping:
-        # Spreads depth gracefully from z_near (0.25m) out to z_far (depth_scale, default 4.5m)
-        z_near = 0.25
+        # Physical Hyperbolic Depth Mapping (Disparity -> True Metric Depth):
+        # MiDaS memprediksi disparitas (inverse depth).
+        # Transformasi fisik yang benar: Z = 1.0 / (alpha * disp_norm + beta)
+        # Menghilangkan distorsi kerucut cembung dan menjaga dinding/lantai tetap datar!
+        z_near = 0.35
         z_far = float(self.depth_scale)
-        depth_metric = z_near + (1.0 - disp_norm) * (z_far - z_near)
+        alpha = (1.0 / z_near) - (1.0 / z_far)
+        beta = 1.0 / z_far
+        depth_metric = 1.0 / (alpha * disp_norm + beta)
         
         # Ping1D Metric Scale Anchor Calibration:
         # Matches the monocular depth center field to true physical acoustic ground truth
@@ -224,8 +228,12 @@ class MonocularDepthNode:
         rgb_packed = (r << 16) | (g << 8) | b
         rgb_float = np.frombuffer(rgb_packed.tobytes(), dtype=np.float32).reshape(X.shape)
         
-        # Filter NaN, Inf, and out-of-range points to ensure RViz renders clean 3D solid surface
-        valid_mask = (Z > 0.15) & (Z < 10.0) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z)
+        # Filter NaN, Inf, out-of-range points, and outer flared border wings
+        border_u = int(w * 0.05)
+        border_v = int(h * 0.05)
+        inner_mask = (u_coords >= border_u) & (u_coords <= (w - border_u)) & \
+                     (v_coords >= border_v) & (v_coords <= (h - border_v))
+        valid_mask = (Z > 0.25) & (Z < 5.0) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z) & inner_mask
         
         X_val = X[valid_mask]
         Y_val = Y[valid_mask]
