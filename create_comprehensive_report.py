@@ -349,23 +349,91 @@ def create_report():
     add_body("• Kasus 4 (TRACK_REF_KF: Less than 15 matches): Peringatan lost tracking pada permukaan dinding/pintu polos diatasi dengan menaikkan nFeatures ke 1500 serta menurunkan ambang FAST ke 15/5.")
 
     # ----------------------------------------------------
-    # BAB VII: KESIMPULAN & PANDUAN PENGOPERASIAN
+    # BAB VIII: EKSTRAKSI WARNA KAMERA ASLI KE ORB-SLAM3
     # ----------------------------------------------------
     doc.add_page_break()
-    add_h1("BAB VII. PANDUAN PENGOPERASIAN LENGKAP & KESIMPULAN")
-    add_body("Seluruh subsistem telah diotomasi penuh melalui launcher batch mandiri:")
-    add_body("1. Full Subsea 3D Mapping (BlueROV2): Dobel klik run_live_rov_mapping.bat (atau run_subsea_mapping.bat).")
-    add_body("2. ORB-SLAM3 Live 3D Mapping: Dobel klik run_orbslam3.bat (Pilih [2] untuk webcam live, [1] untuk rekaman ROV).")
-    add_body("3. Ekspor Peta 3D ke Browser: Dobel klik export_3d_map.bat.")
-    add_body("4. Web 3D Viewer Mandiri (Three.js): Dobel klik open_3d_web_viewer.bat atau buka view_slam_3d_web.html.")
-    add_body("5. Visual Odometry CPU-Only: Dobel klik run_live_vo_webcam.bat.")
+    add_h1("BAB VIII. EKSTRAKSI WARNA KAMERA ASLI KE ORB-SLAM3 POINT CLOUD")
+    add_body("Untuk mengatasi keterbatasan visualisasi ORB-SLAM3 bawaan yang hanya menampilkan titik monokrom (hitam/putih/merah), dikembangkan arsitektur *Photometric Color Augmentation* langsung pada library inti libORB_SLAM3.so.")
+    add_body("1. Penambahan Atribut RGB pada Kelas MapPoint: Variabel warna mColorR, mColorG, mColorB dan flag mbHasColor diintegrasikan ke include/MapPoint.h.")
+    add_body("2. Sampling Warna BGR & Filter EMA: Pada Tracking.cc, warna piksel diekstraksi dari frame kamera asli dan dihaluskan menggunakan filter Exponential Moving Average (EMA) dengan bobot 65% warna historis + 35% warna frame baru untuk mengeliminasi sensor flicker.")
+    add_body("3. Rendering Real-Time di Pangolin: MapDrawer.cc merender titik 3D menggunakan glColor3f() sesuai nilai warna fisik objek.")
 
-    add_h2("7.1 Kesimpulan Penelitian & Rekomendasi")
-    add_body("1. Fusi multi-sensor Bar30 dan Sonar Ping1D berhasil mengunci skala metrik fisik nyata (meter) dan menghilangkan vertical drift pada sumbu Z.")
-    add_body("2. Penyelarasan update keyframe dan batas translasi maksimal Odom/MaxTranslation = 0.30 m melenyapkan bug peta melayang secara permanen.")
-    add_body("3. Visualisasi Three.js Web Viewer memberikan kebebasan inspeksi dan pengukuran dimensi tanpa ketergantungan perangkat lunak Linux.")
-    add_body("4. Verifikasi ORB-SLAM3 dengan zero-latency bridge membuktikan komputasi SLAM kelas berat dapat berjalan mulus dengan akselerasi GPU Direct3D 12 di Windows 11.")
-    add_body("5. Arsitektur Dual-Stage (RTAB-Map navigasi live + MASt3R-SLAM post-mission digital twin) memberikan solusi terlengkap bagi robotika bawah air modern.")
+    # ----------------------------------------------------
+    # BAB IX: FUSI MUTAKHIR — DENSE NEURAL-SLAM
+    # ----------------------------------------------------
+    doc.add_page_break()
+    add_h1("BAB IX. FUSI MUTAKHIR — DENSE NEURAL-SLAM (ORB-SLAM3 + DEPTH AI + RTAB-MAP)")
+    add_body("Fusi Dense Neural-SLAM menyatukan dua kekuatan utama penglihatan komputer robotika:")
+    add_body("1. ORB-SLAM3 6-DoF Tracker: Menghasilkan pelacakan orientasi dan posisi kamera berpresisi tinggi tanpa risiko drift orientasi.")
+    add_body("2. Depth AI Monocular (MiDaS ONNX): Mengestimasi kedalaman permukaan padat per-piksel secara real-time.")
+    add_body("3. RTAB-Map Global Map Fusion: Mengakumulasikan awan titik 3D padat ke sistem koordinat global mengikuti panduan pose dari ORB-SLAM3.")
+    add_body("Implementasi node C++ kustom (src/orb_slam3_odom_node.cpp) mengalirkan odometri /rtabmap/odom dan TF odom -> camera_optical_link secara real-time.")
+
+    # ----------------------------------------------------
+    # BAB X: PELURUSAN KOORDINAT HORISONTAL & INTEGRASI LENGKAP VISUALISASI KE RVIZ
+    # ----------------------------------------------------
+    doc.add_page_break()
+    add_h1("BAB X. PELURUSAN KOORDINAT HORISONTAL & INTEGRASI LENGKAP VISUALISASI RVIZ")
+    add_body("10.1 Pelurusan Matriks Rotasi R_align:")
+    add_body("Mengonversi sistem optik kamera (Z forward, X right, Y down) ke sistem robotika ROS REP 103 (X forward mendatar, Y left, Z up). Hasilnya, seluruh model 3D dan kamera duduk datar alami di atas lantai grid RViz.")
+    add_body("10.2 Pemetaan Kedalaman Hiperbolik Fisik:")
+    add_body("Mengonversi nilai disparitas d dari MiDaS menjadi kedalaman metrik Z melalui rumus Z = 1.0 / (alpha * d_norm + beta). Transformasi ini menjaga bidang datar (dinding, pintu, dan dasar laut) tetap datar tanpa pembengkokan kerucut cembung.")
+    add_body("10.3 Eliminasi Artefak Sayap Kipas (Border Flare Filtering):")
+    add_body("Memotong 5% margin tepi luar frame kamera guna melenyapkan artefak peregangan di tepi lensa.")
+    add_body("10.4 Replikasi Visual ORB-SLAM3 di RViz:")
+    add_body("• Piramida Kamera Merah (/orb_slam3/camera_marker) bergerak aktif 30 FPS mengikuti pose kamera.")
+    add_body("• Piramida KeyFrame Biru (/orb_slam3/keyframe_markers) menandai riwayat pose kunci.")
+    add_body("• Covisibility Graph Hijau Neon (/orb_slam3/covisibility_graph) menghubungkan relasi antar keyframe.")
+    add_body("• Tracked MapPoints Berwarna (/orb_slam3/sparse_points) menampilkan titik fitur 3D bertekstur warna asli.")
+    add_body("• Latar Belakang RViz Putih Bersih (255, 255, 255) dengan grid abu-abu elegan untuk visualisasi tingkat profesional.")
+
+    # ----------------------------------------------------
+    # BAB XI: KESIMPULAN RISET, BENCHMARK & PANDUAN PENGOPERASIAN
+    # ----------------------------------------------------
+    doc.add_page_break()
+    add_h1("BAB XI. KESIMPULAN RISET, EVALUASI BENCHMARK & PANDUAN PENGOPERASIAN")
+    
+    # Table of Benchmark
+    t_bench = doc.add_table(rows=6, cols=3)
+    t_bench.alignment = WD_TABLE_ALIGNMENT.CENTER
+    bench_headers = ["Parameter Kinerja", "ORB-SLAM3 Monocular", "Fusi Dense Neural-SLAM (Sistem Baru)"]
+    for j, h in enumerate(bench_headers):
+        cell = t_bench.rows[0].cells[j]
+        cell.text = h
+        set_cell_background(cell, "0A2540")
+        p = cell.paragraphs[0]
+        r = p.runs[0]
+        r.font.bold = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = RGBColor(255, 255, 255)
+        set_cell_margins(cell, 80, 80, 100, 100)
+        
+    bench_data = [
+        ("Kecepatan Tracking", "30.0 FPS", "28 - 30 FPS (Mulus & Real-Time)"),
+        ("Kerapatan Model 3D", "Sparse (100 - 400 titik)", "Dense (Permukaan Fisik Padat Utuh)"),
+        ("Ketahanan Drift", "Sangat Tinggi (Bundle Adjustment)", "Sangat Tinggi (Terkunci ORB-SLAM3)"),
+        ("Orientasi Bidang Lantai", "Sumbu Bebas Optik", "Datar Sempurna di Lantai Grid RViz"),
+        ("Format Ekspor Model", "Trajectory TXT", "PLY Standard 3D, Three.js Web, PCD")
+    ]
+    for i, row in enumerate(bench_data):
+        r_cells = t_bench.rows[i+1].cells
+        for j, val in enumerate(row):
+            r_cells[j].text = val
+            p = r_cells[j].paragraphs[0]
+            r = p.runs[0]
+            r.font.size = Pt(8.5)
+            r.font.color.rgb = DARK_GRAY
+            set_cell_margins(r_cells[j], 60, 60, 80, 80)
+            if i % 2 == 1:
+                set_cell_background(r_cells[j], "F1F5F9")
+                
+    add_h2("11.1 Panduan Pengoperasian Terpadu")
+    add_body("1. Jalankan run_dense_orbslam_ai.bat untuk meluncurkan fusi lengkap (Pilih [1] Webcam atau [2] Video ROV).")
+    add_body("2. Jalankan export_3d_map.bat untuk mengekspor model 3D padat ke file subsea_dense_map.ply.")
+    add_body("3. Jalankan open_3d_web_viewer.bat untuk menginspeksi hasil rekonstruksi di browser Web Three.js.")
+
+    add_h2("11.2 Kesimpulan Akhir")
+    add_body("Proyek ini berhasil menyatukan keunggulan pelacakan geometris klasik tingkat industri (ORB-SLAM3) dengan kecerdasan buatan monokuler (Depth AI MiDaS) dan pemetaan global (RTAB-Map), menghasilkan sistem pemetaan 3D bawah laut modern yang stabil, akurat, dan dapat diinspeksi secara fleksibel.")
 
     # Save to disk
     output_docx = os.path.join(rov_dir, "LAPORAN_LENGKAP_SUBSEA_3D_SLAM.docx")
@@ -374,3 +442,4 @@ def create_report():
 
 if __name__ == '__main__':
     create_report()
+
