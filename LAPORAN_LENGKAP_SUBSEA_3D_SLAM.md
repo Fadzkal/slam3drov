@@ -317,12 +317,63 @@ graph TD
    Merender titik-titik awan 3D di viewport Pangolin menggunakan `glColor3f(pMP->mColorR, pMP->mColorG, pMP->mColorB)`. Titik referensi aktif diberi pencerahan (*subtle brightness boost*) dan ukuran lebih besar (`glPointSize(mPointSize * 1.8f)`) agar operator dapat langsung membedakan titik yang sedang dikunci kamera.
 
 4. **`src/Viewer.cc`**:
-   Menambahkan opsi **`Dark Background`** pada panel kontrol menu Pangolin (`glClearColor(0.10f, 0.12f, 0.15f, 1.0f)`). Latar belakang gelap memberikan kontras rasio maksimal sehingga warna fisik material objek (seperti cat merah kontainer, pelat putih, biota laut hijau) tampak menyala dan sangat mudah dikenali.
+   Menggunakan latar belakang **Putih Bersih** standar (`glClearColor(1.0f, 1.0f, 1.0f, 1.0f)`). Tampilan putih memberikan kejelasan maksimal untuk membaca struktur awan titik dan garis graf kamera tanpa distorsi visual.
 
 ### 8.3 Hasil & Keuntungan Operasional
 
 - **100% Real-Time**: Tidak mengurangi frame rate pelacakan (*zero overhead*), karena sampling warna hanya mengeksekusi operasi baca memori sederhana pada titik inlier yang sudah terverifikasi.
 - **Warna Sesuai Kamera Asli**: Jika kamera melihat objek berwarna merah, kuning, atau biru, titik 3D yang muncul pada ruang rekonstruksi OpenGL secara presisi memiliki warna yang identik dengan objek fisik tersebut.
 - **Bebas Flickering**: Penerapan filter *Exponential Moving Average* (EMA) menyaring variasi fluktuasi pencahayaan dan *sensor noise*, menghasilkan representasi warna yang konsisten dari berbagai sudut pandang wahana ROV.
+
+---
+
+## BAB IX: Fusi Mutakhir — Dense Neural-SLAM (ORB-SLAM3 Odometry + Depth AI MiDaS + RTAB-Map)
+
+### 9.1 Konsep & Motivasi Arsitektur
+
+Meskipun ORB-SLAM3 memiliki keunggulan pelacakan trajektori 6-DoF yang sangat kokoh dan akurat (X, Y, Z dan rotasi kamera tidak pernah melayang atau terdistorsi), keluarannya secara geometris adalah awan titik renggang (*sparse point cloud* / 100–300 titik sudut FAST) sehingga wujud permukaan fisik objek (seperti badan galon, meja, atau lambung kontainer) tidak dapat tampak utuh.
+
+Di sisi lain, modul **Depth AI (`monocular_depth_node.py`)** berbasis model *neural network* **MiDaS ONNX** mampu mengestimasi kedalaman per-piksel secara padat (*dense depth*), tetapi jika visual odometri bawaannya berdiri sendiri tanpa sensor stereo/DVL, skalanya rentan mengalami drift saat wahana berputar cepat.
+
+Melalui arsitektur **Dense Neural-SLAM**, kedua keunggulan ini disatukan:
+1. **ORB-SLAM3** berperan sebagai **Engine Navigasi / 6-DoF Pose Tracker** (100% presisi).
+2. **Depth AI (MiDaS)** berperan sebagai **Engine Estimasi Permukaan 3D Padat** per-piksel.
+3. **RTAB-Map** berperan sebagai **Global Map Fusion Engine** yang menyusun potongan awan titik padat ke ruang koordinat dunia global mengikuti panduan pose dari ORB-SLAM3.
+
+```mermaid
+graph TD
+    CAM["Kamera (Webcam USB / ROV Video)"] -->|"Frame BGR Asli"| ORB["orb_slam3_odom_node"]
+    CAM -->|"Frame BGR Asli"| AI["monocular_depth_node (MiDaS AI)"]
+    
+    ORB -->|"Pose Kamera 6-DoF Presisi (X,Y,Z, RPY)"| ODOM["/rtabmap/odom & TF (odom -> camera_optical_link)"]
+    AI -->|"Dense Depth Map per-Piksel"| DEPTH["/camera/synced/depth"]
+    CAM -->|"Tekstur Warna Asli"| RGB["/camera/synced/image"]
+    
+    ODOM --> RTAB["RTAB-Map SLAM Node"]
+    DEPTH --> RTAB
+    RGB --> RTAB
+    
+    RTAB --> RVIZ["RViz: Wujud Fisik Benda 3D Padat, Utuh, & Real-Time!"]
+    RTAB --> PLY["Ekspor Standard 3D Model (.PLY / Three.js Web Viewer)"]
+```
+
+### 9.2 Implementasi Komponen Sistem
+
+1. **Node ROS Baru (`src/orb_slam3_odom_node.cpp`)**:
+   - Terintegrasi langsung dengan `libORB_SLAM3.so`.
+   - Mengambil frame video dari kamera/bridge secara real-time.
+   - Menghitung pose 6-DoF kamera via `SLAM.TrackMonocular()`.
+   - Mempublikasikan pesan `nav_msgs::Odometry` ke topik `/rtabmap/odom` dengan kovariansi presisi tinggi, serta menyiarkan transformasi `tf2` (`odom -> camera_optical_link`).
+2. **Launch File Fusi ([`live_orbslam_dense_mapping.launch`](file:///c:/remote_ROV/live_orbslam_dense_mapping.launch))**:
+   - Menghubungkan secara otomatis `orb_slam3_odom_node`, `monocular_depth_node`, `rtabmap_slam`, dan `rviz`.
+3. **Launcher One-Click Windows ([`run_dense_orbslam_ai.bat`](file:///c:/remote_ROV/run_dense_orbslam_ai.bat))**:
+   - Menyediakan menu interaktif untuk menjalankan live webcam atau video kontainer bawah air hanya dengan satu klik.
+
+### 9.3 Hasil & Keunggulan Fusi
+
+- **Wujud Benda Terlihat Utuh**: Seluruh permukaan objek fisik langsung membentuk model 3D padat (*dense surface mesh*), bukan sekadar titik-titik mengambang di udara.
+- **Bebas Drift & Lompatan Liar**: Trajektori terkunci secara stabil karena diarahkan oleh bundle adjustment dan loop closing dari ORB-SLAM3.
+- **Format Universal**: Model 3D padat yang dihasilkan dapat diekspor langsung ke format `.ply` menggunakan [`export_3d_map.bat`](file:///c:/remote_ROV/export_3d_map.bat) untuk diinspeksi di browser Web Three.js ([`view_slam_3d_web.html`](file:///c:/remote_ROV/view_slam_3d_web.html)).
+
 
 

@@ -1,12 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(subsea_3d_mapping)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   mavros
@@ -16,7 +13,17 @@ find_package(catkin REQUIRED COMPONENTS
   rtabmap_ros
   sensor_msgs
   std_msgs
+  cv_bridge
+  image_transport
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
 )
+
+find_package(OpenCV REQUIRED)
+find_package(Eigen3 3.1.0 REQUIRED)
+find_package(Pangolin REQUIRED)
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -121,9 +128,29 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/include
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/include/CameraModels
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Thirdparty/Sophus
 )
+
+add_executable(orb_slam3_odom_node src/orb_slam3_odom_node.cpp)
+
+target_link_libraries(orb_slam3_odom_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${Pangolin_LIBRARIES}
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/lib/libORB_SLAM3.so
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Thirdparty/DBoW2/lib/libDBoW2.so
+  /home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Thirdparty/g2o/lib/libg2o.so
+  -lboost_system
+  -lpthread
+)
+
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

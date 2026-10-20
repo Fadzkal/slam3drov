@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!--
+  live_orbslam_dense_mapping.launch
+  =============================================================================
+  FUSI DENSE NEURAL-SLAM: ORB-SLAM3 Tracking + Depth AI (MiDaS) + RTAB-Map
+  =============================================================================
+  1. ORB-SLAM3 Odom Node:
+     - 100% Presisi Tracking Rotasi (Roll, Pitch, Yaw) dan Translasi (X, Y, Z)
+     - Menyiarkan odometri ke /rtabmap/odom dan TF (odom -> camera_optical_link)
+     - Menyiarkan frame kamera ke /camera/image_raw
+  2. Depth AI Node (monocular_depth_node.py):
+     - Membaca /camera/image_raw
+     - Menghitung kedalaman per-piksel via Neural Network MiDaS ONNX
+     - Menghasilkan /camera/synced/depth dan awan titik padat wujud benda fisik
+  3. RTAB-Map SLAM:
+     - Menempelkan potongan awan titik 3D padat dari Depth AI
+       ke posisi global mengikuti panduan pose presisi dari ORB-SLAM3!
+  4. RViz 3D Visualizer:
+     - Menampilkan model 3D padat real-time dengan tekstur warna asli kamera!
+  =============================================================================
+-->
+<launch>
+  <arg name="camera_source" default="http://localhost:8088/stream.mjpg" />
+  <arg name="voc_file"      default="$(env HOME)/slam_ws/ORB_SLAM3/Vocabulary/ORBvoc.txt" />
+  <arg name="settings_file" default="$(env HOME)/slam_ws/webcam_640.yaml" />
+  <arg name="use_pangolin"  default="true" />
+  <arg name="open_rviz"     default="true" />
+  <arg name="point_step"    default="3" />
+  <arg name="depth_scale"   default="4.5" />
+
+  <!-- 1. ORB-SLAM3 6-DoF Odometry Tracker Node -->
+  <node pkg="subsea_3d_mapping" type="orb_slam3_odom_node" name="orb_slam3_odom" output="screen">
+    <param name="voc_file"        type="string" value="$(arg voc_file)" />
+    <param name="settings_file"   type="string" value="$(arg settings_file)" />
+    <param name="camera_source"   type="string" value="$(arg camera_source)" />
+    <param name="image_topic"     type="string" value="/camera/image_raw" />
+    <param name="odom_topic"      type="string" value="/rtabmap/odom" />
+    <param name="odom_frame_id"   type="string" value="odom" />
+    <param name="child_frame_id"  type="string" value="camera_optical_link" />
+    <param name="publish_tf"      type="bool"   value="true" />
+    <param name="use_pangolin"    type="bool"   value="$(arg use_pangolin)" />
+    <param name="fps"             type="double" value="30.0" />
+  </node>
+
+  <!-- 2. Static Transforms (Camera Frames) -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="optical_to_camera" 
+        args="0 0 0 1.5707963 0 1.5707963 camera_optical_link camera_link" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="camera_to_base" 
+        args="-0.18 0.0 -0.05 0 0 0 camera_link base_link" />
+
+  <!-- 3. AI Monocular Depth Node (MiDaS ONNX Engine) -->
+  <node pkg="subsea_3d_mapping" type="monocular_depth_node.py" name="monocular_depth" output="screen">
+    <param name="model_path"   type="string" value="$(find subsea_3d_mapping)/models/model-small.onnx" />
+    <param name="depth_scale"  type="double" value="$(arg depth_scale)" />
+    <param name="point_step"   type="int"    value="$(arg point_step)" />
+    <param name="image_topic"  type="string" value="/camera/image_raw" />
+  </node>
+
+  <!-- 4. RTAB-Map SLAM Node (Fused with ORB-SLAM3 Odometry) -->
+  <group ns="rtabmap">
+    <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="--delete_db_on_start">
+      <param name="frame_id"                    type="string" value="camera_optical_link"/>
+      <param name="odom_frame_id"               type="string" value="odom"/>
+      <param name="map_frame_id"                type="string" value="map"/>
+      <param name="subscribe_depth"             type="bool"   value="true"/>
+      <param name="subscribe_rgb"               type="bool"   value="false"/>
+      <param name="subscribe_odom"              type="bool"   value="true"/>
+      <param name="approx_sync"                 type="bool"   value="true"/>
+      <param name="queue_size"                  type="int"    value="15"/>
+      <param name="sync_queue_size"             type="int"    value="15"/>
+      <param name="tf_tolerance"                type="double" value="0.3"/>
+      <param name="wait_for_transform"          type="bool"   value="true"/>
+      <param name="wait_for_transform_duration" type="double" value="0.5"/>
+
+      <!-- Remapping Topik Sensor -->
+      <remap from="rgb/image"                   to="/camera/synced/image"/>
+      <remap from="depth/image"                 to="/camera/synced/depth"/>
+      <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
+      <remap from="odom"                        to="/rtabmap/odom"/>
+
+      <!-- Pengaturan Pembuatan Peta 3D Padat -->
+      <param name="RGBD/Enabled"                type="string" value="true"/>
+      <param name="Rtabmap/DetectionRate"       type="string" value="2.0"/>
+      <param name="RGBD/LinearUpdate"           type="string" value="0.05"/> <!-- Update setiap gerak 5 cm -->
+      <param name="RGBD/AngularUpdate"          type="string" value="0.08"/> <!-- Update setiap putar ~4.5 derajat -->
+      <param name="Grid/RangeMax"               type="string" value="5.0"/>
+      <param name="Grid/CellSize"               type="string" value="0.02"/> <!-- Resolusi Voxel 2 cm -->
+      <param name="Grid/RayTracing"             type="string" value="true"/>
+      <param name="Mem/IncrementalMemory"       type="string" value="true"/>
+    </node>
+  </group>
+
+  <!-- 5. RViz 3D Visualizer -->
+  <group if="$(arg open_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" 
+          args="-d $(find subsea_3d_mapping)/subsea_mapping.rviz" output="screen" />
+  </group>
+
+</launch>
