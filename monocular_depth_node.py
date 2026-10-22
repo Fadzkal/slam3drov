@@ -28,7 +28,9 @@ class MonocularDepthNode:
         
         self.bridge = CvBridge()
         self.depth_scale = rospy.get_param("~depth_scale", 4.5)
+        self.max_depth_range = rospy.get_param("~max_depth_range", 3.0)
         self.step = rospy.get_param("~point_step", 3)
+        self._prev_depth = None
         
         # Ping1D Sonar Metric Anchor State
         self.latest_ping_distance = None
@@ -133,16 +135,25 @@ class MonocularDepthNode:
                 scale_correction = np.clip(scale_correction, 0.35, 2.8)
                 depth_metric = depth_metric * scale_correction
         
-        # Remove edge flare artifacts
-        h_d, w_d = depth_metric.shape
-        by = int(h_d * 0.05)
-        bx = int(w_d * 0.05)
-        depth_metric[:by, :] = depth_metric[by, :]
-        depth_metric[-by:, :] = depth_metric[-by-1, :]
-        depth_metric[:, :bx] = depth_metric[:, bx:bx+1]
-        depth_metric[:, -bx:] = depth_metric[:, -bx-1:-bx]
-        
+        # Temporal Exponential Moving Average (EMA) to smooth depth jitter across frames
+        if self._prev_depth is not None and self._prev_depth.shape == depth_metric.shape:
+            depth_metric = 0.70 * self._prev_depth + 0.30 * depth_metric
+        self._prev_depth = depth_metric.copy()
+
+        # Resize to full camera frame resolution before masking
         depth_metric_resized = cv2.resize(depth_metric.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+
+        # 1. Inner Boundary Masking (8% margin) - set to NaN to eliminate fan-wing frustum edge artifacts
+        by = max(2, int(h * 0.08))
+        bx = max(2, int(w * 0.08))
+        depth_metric_resized[:by, :] = np.nan
+        depth_metric_resized[-by:, :] = np.nan
+        depth_metric_resized[:, :bx] = np.nan
+        depth_metric_resized[:, -bx:] = np.nan
+
+        # 2. Distance range cutoff (ignore distant background so it doesn't form a giant cone)
+        depth_metric_resized[depth_metric_resized > float(self.max_depth_range)] = np.nan
+        depth_metric_resized[depth_metric_resized < 0.25] = np.nan
         
         # Common timestamp for perfect synchronization
         now = rospy.Time.now()

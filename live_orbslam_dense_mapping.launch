@@ -52,9 +52,10 @@
   <!-- 3. AI Monocular Depth Node (MiDaS ONNX Engine) -->
   <node pkg="subsea_3d_mapping" type="monocular_depth_node.py" name="monocular_depth" output="screen">
     <param name="model_path"   type="string" value="$(find subsea_3d_mapping)/models/model-small.onnx" />
-    <param name="depth_scale"  type="double" value="$(arg depth_scale)" />
-    <param name="point_step"   type="int"    value="$(arg point_step)" />
-    <param name="image_topic"  type="string" value="/camera/image_raw" />
+    <param name="depth_scale"      type="double" value="$(arg depth_scale)" />
+    <param name="max_depth_range"  type="double" value="3.0" />
+    <param name="point_step"       type="int"    value="$(arg point_step)" />
+    <param name="image_topic"      type="string" value="/camera/image_raw" />
   </node>
 
   <!-- 4. RTAB-Map SLAM Node (Fused with ORB-SLAM3 Odometry) -->
@@ -86,12 +87,14 @@
       <param name="RGBD/AngularUpdate"          type="string" value="0.08"/> <!-- Update setiap putar ~4.5 derajat -->
       <param name="Grid/FromDepth"              type="string" value="true"/>
       <param name="Grid/Sensor"                 type="string" value="1"/> <!-- 1 = RGB-D Depth -->
-      <param name="Grid/RangeMax"               type="string" value="5.0"/>
+      <param name="Grid/RangeMax"               type="string" value="3.0"/> <!-- Potong background > 3 meter -->
       <param name="Grid/RangeMin"               type="string" value="0.25"/>
       <param name="Grid/DepthDecimation"        type="int"    value="4"/>
       <param name="Grid/CellSize"               type="string" value="0.02"/> <!-- Resolusi Voxel 2 cm -->
-      <param name="Grid/VoxelSize"              type="double" value="0.03"/>
-      <param name="cloud_voxel_size"            type="double" value="0.03"/>
+      <param name="Grid/VoxelSize"              type="double" value="0.02"/>
+      <param name="cloud_voxel_size"            type="double" value="0.02"/>
+      <param name="Grid/NoiseFilteringRadius"   type="string" value="0.05"/> <!-- Filter SOR pembersih noise -->
+      <param name="Grid/NoiseFilteringMinNeighbors" type="string" value="5"/>
       <param name="Grid/RayTracing"             type="string" value="true"/>
       <param name="Mem/IncrementalMemory"       type="string" value="true"/>
       <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
