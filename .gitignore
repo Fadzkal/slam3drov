@@ -19,16 +19,29 @@ videos/
 *.mkv
 *.mov
 
+# Databases & large dumps
+*.db
+*.db-journal
+
+# Office & OS temp locks
+~$*
+* copy.*
+Thumbs.db
+Desktop.ini
+.DS_Store
+
 # Logs & temp
 *.log
 bridge_port.txt
-KeyFrameTrajectory.txt
 scratch/
 test_clone/
 .vscode/
 .idea/
 
-# OS artifacts
-Thumbs.db
-Desktop.ini
-.DS_Store
+# Root runtime copies (tracked models reside in export/)
+/subsea_3d_map.ply
+/subsea_3d_mesh.ply
+/KeyFrameMapPoints.ply
+/KeyFrameTrajectory.txt
+export/*_cloud.ply
+export/*_mesh_mesh.ply

@@ -14,6 +14,8 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <ctime>
 
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
@@ -43,7 +45,7 @@ class OrbSlam3OdomNode
 {
 public:
     OrbSlam3OdomNode(ros::NodeHandle &nh, ros::NodeHandle &pnh)
-        : nh_(nh), pnh_(pnh), it_(nh), mbTrackingOk(false)
+        : nh_(nh), pnh_(pnh), it_(nh), mbTrackingOk(false), dLastFrameTime_(0.0)
     {
         // 1. Baca Parameter ROS
         pnh_.param<string>("voc_file", strVocFile_, "/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Vocabulary/ORBvoc.txt");
@@ -134,7 +136,29 @@ public:
         if (mpSLAM)
         {
             mpSLAM->Shutdown();
+
+            // Format tanggal & jam otomatis (YYYYMMDD_HHMMSS)
+            time_t rawtime;
+            struct tm * timeinfo;
+            char buffer[80];
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+            strftime(buffer, sizeof(buffer), "%Y%m%d_%H%M%S", timeinfo);
+            std::string strTime(buffer);
+
+            // 1. Simpan Trajectory Lintasan Kamera (TUM format)
             mpSLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+            mpSLAM->SaveKeyFrameTrajectoryTUM("/mnt/c/remote_ROV/KeyFrameTrajectory.txt");
+            mpSLAM->SaveKeyFrameTrajectoryTUM("/mnt/c/remote_ROV/export/KeyFrameTrajectory.txt");
+            mpSLAM->SaveKeyFrameTrajectoryTUM(("/mnt/c/remote_ROV/export/KeyFrameTrajectory_" + strTime + ".txt").c_str());
+
+            // 2. Simpan Seluruh Awan Titik 3D Berwarna (PLY format)
+            SavePointsPLY("KeyFrameMapPoints.ply");
+            SavePointsPLY("/mnt/c/remote_ROV/KeyFrameMapPoints.ply");
+            SavePointsPLY("/mnt/c/remote_ROV/export/KeyFrameMapPoints.ply");
+            SavePointsPLY("/mnt/c/remote_ROV/export/KeyFrameMapPoints_" + strTime + ".ply");
+
+            std::cout << "\n[ORB-SLAM3] Selesai! Data disimpan ke KeyFrameMapPoints.ply dan arsip: export/KeyFrameMapPoints_" << strTime << ".ply\n" << std::endl;
         }
     }
 
@@ -164,6 +188,15 @@ private:
         }
 
         double tframe = stamp.toSec();
+        ros::Time frameStamp = stamp;
+
+        // Jaminan Waktu Monotonik: Menghilangkan error 'timestamp older' & jump back in time di WSL2
+        if (dLastFrameTime_ > 0.0 && tframe <= dLastFrameTime_)
+        {
+            tframe = dLastFrameTime_ + 0.001;
+            frameStamp = ros::Time(tframe);
+        }
+        dLastFrameTime_ = tframe;
 
         // 1. Eksekusi Pelacakan 6-DoF ORB-SLAM3
         Sophus::SE3f Tcw = mpSLAM->TrackMonocular(frame, tframe);
@@ -208,7 +241,7 @@ private:
 
             // Odometry Message
             nav_msgs::Odometry odomMsg;
-            odomMsg.header.stamp = stamp;
+            odomMsg.header.stamp = frameStamp;
             odomMsg.header.frame_id = strOdomFrame_;
             odomMsg.child_frame_id = strChildFrame_;
 
@@ -242,7 +275,7 @@ private:
             if (bPublishTf_)
             {
                 geometry_msgs::TransformStamped tfMsg;
-                tfMsg.header.stamp = stamp;
+                tfMsg.header.stamp = frameStamp;
                 tfMsg.header.frame_id = strOdomFrame_;
                 tfMsg.child_frame_id = strChildFrame_;
 
@@ -259,7 +292,7 @@ private:
             }
 
             // Visualisasi Elemen ORB-SLAM3 di RViz: Kamera Merah, KeyFrame Biru, Graf Hijau, Titik Fitur
-            PublishOrbVisuals(stamp, t_odom, R_odom);
+            PublishOrbVisuals(frameStamp, t_odom, R_odom);
         }
     }
 
@@ -412,54 +445,56 @@ private:
             covisGraphPub_.publish(covisMarker);
         }
 
-        // 3. Publikasikan Titik Fitur Aktif ORB-SLAM3 (Colored Feature Points)
+        // 3. Simpan dan Akumulasikan Titik Fitur ORB-SLAM3 agar Tidak Pernah Hilang
         std::vector<ORB_SLAM3::MapPoint*> vpTrackedMPs = mpSLAM->GetTrackedMapPoints();
-        if (!vpTrackedMPs.empty())
-        {
-            Eigen::Matrix3f R_align;
-            R_align <<  0.0f,  0.0f,  1.0f,
-                       -1.0f,  0.0f,  0.0f,
-                        0.0f, -1.0f,  0.0f;
+        Eigen::Matrix3f R_align;
+        R_align <<  0.0f,  0.0f,  1.0f,
+                   -1.0f,  0.0f,  0.0f,
+                    0.0f, -1.0f,  0.0f;
 
+        for (size_t i = 0; i < vpTrackedMPs.size(); ++i)
+        {
+            ORB_SLAM3::MapPoint* pMP = vpTrackedMPs[i];
+            if (!pMP || pMP->isBad()) continue;
+
+            Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
+            uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
+            uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
+            uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
+            if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
+
+            mapStoredPoints_[pMP->mnId] = {pos.x(), pos.y(), pos.z(), r, g, b};
+        }
+
+        // Publikasikan seluruh titik yang tersimpan ke RViz (Points Tersimpan Permanen)
+        if (!mapStoredPoints_.empty())
+        {
             sensor_msgs::PointCloud2 cloudMsg;
             cloudMsg.header.stamp = stamp;
             cloudMsg.header.frame_id = strOdomFrame_;
             cloudMsg.height = 1;
-            cloudMsg.width = vpTrackedMPs.size();
+            cloudMsg.width = mapStoredPoints_.size();
             cloudMsg.is_dense = false;
 
             sensor_msgs::PointCloud2Modifier modifier(cloudMsg);
             modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
-            modifier.resize(vpTrackedMPs.size());
+            modifier.resize(mapStoredPoints_.size());
 
             sensor_msgs::PointCloud2Iterator<float> iter_x(cloudMsg, "x");
             sensor_msgs::PointCloud2Iterator<float> iter_y(cloudMsg, "y");
             sensor_msgs::PointCloud2Iterator<float> iter_z(cloudMsg, "z");
             sensor_msgs::PointCloud2Iterator<uint8_t> iter_rgb(cloudMsg, "rgb");
 
-            for (size_t i = 0; i < vpTrackedMPs.size(); ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb)
+            for (auto const &pair : mapStoredPoints_)
             {
-                ORB_SLAM3::MapPoint* pMP = vpTrackedMPs[i];
-                if (!pMP || pMP->isBad())
-                {
-                    *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
-                    continue;
-                }
-
-                Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
-                *iter_x = pos.x();
-                *iter_y = pos.y();
-                *iter_z = pos.z();
-
-                uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
-                uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
-                uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
-
-                if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
-
-                iter_rgb[0] = b;
-                iter_rgb[1] = g;
-                iter_rgb[2] = r;
+                const StoredPoint &pt = pair.second;
+                *iter_x = pt.x;
+                *iter_y = pt.y;
+                *iter_z = pt.z;
+                iter_rgb[0] = pt.b;
+                iter_rgb[1] = pt.g;
+                iter_rgb[2] = pt.r;
+                ++iter_x; ++iter_y; ++iter_z; ++iter_rgb;
             }
             sparsePointsPub_.publish(cloudMsg);
         }
@@ -568,9 +603,43 @@ private:
 
     float fx_, fy_, cx_, cy_;
 
+    struct StoredPoint {
+        float x, y, z;
+        uint8_t r, g, b;
+    };
+    std::unordered_map<long unsigned int, StoredPoint> mapStoredPoints_;
+
+    void SavePointsPLY(const std::string &filename)
+    {
+        if (mapStoredPoints_.empty()) return;
+        std::ofstream f(filename.c_str());
+        if (!f.is_open()) return;
+
+        f << "ply\n";
+        f << "format ascii 1.0\n";
+        f << "element vertex " << mapStoredPoints_.size() << "\n";
+        f << "property float x\n";
+        f << "property float y\n";
+        f << "property float z\n";
+        f << "property uchar red\n";
+        f << "property uchar green\n";
+        f << "property uchar blue\n";
+        f << "end_header\n";
+
+        for (auto const &pair : mapStoredPoints_)
+        {
+            const StoredPoint &pt = pair.second;
+            f << pt.x << " " << pt.y << " " << pt.z << " "
+              << (int)pt.r << " " << (int)pt.g << " " << (int)pt.b << "\n";
+        }
+        f.close();
+        ROS_INFO("[ORB-SLAM3] Sukses menyimpan %zu titik 3D ke file: %s", mapStoredPoints_.size(), filename.c_str());
+    }
+
     shared_ptr<ORB_SLAM3::System> mpSLAM;
     float imageScale_;
     bool mbTrackingOk;
+    double dLastFrameTime_;
 
     string strVocFile_;
     string strSettingsFile_;

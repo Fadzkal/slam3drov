@@ -26,29 +26,23 @@ echo "[2/3] Mengekspor Dense Point Cloud 3D menggunakan rtabmap-export..."
 source /opt/ros/noetic/setup.bash 2>/dev/null || source /opt/ros/melodic/setup.bash 2>/dev/null || true
 
 # rtabmap-export extracts the assembled colored point cloud with voxel grid filtering
-rtabmap-export --ply --voxel 0.015 --decimation 2 --output_dir "$EXPORT_DIR" --output "subsea_3d_map" "$SNAPSHOT_DB"
+rtabmap-export --ply --voxel 0.02 --decimation 2 --output_dir "$EXPORT_DIR" --output "subsea_3d_map" "$SNAPSHOT_DB" || true
+rtabmap-export --mesh --output_dir "$EXPORT_DIR" --output "subsea_3d_mesh" "$SNAPSHOT_DB" || true
 
-# Check output file
-if [ -f "$OUTPUT_PLY" ]; then
-    FILE_SIZE=$(du -h "$OUTPUT_PLY" | cut -f1)
-    echo "[3/3] BERHASIL! File 3D diekspor ke: $OUTPUT_PLY ($FILE_SIZE)"
-    rm -f "$SNAPSHOT_DB"
-elif [ -f "${EXPORT_DIR}/subsea_3d_map_mesh.ply" ]; then
-    mv "${EXPORT_DIR}/subsea_3d_map_mesh.ply" "$OUTPUT_PLY"
-    FILE_SIZE=$(du -h "$OUTPUT_PLY" | cut -f1)
-    echo "[3/3] BERHASIL! File 3D diekspor ke: $OUTPUT_PLY ($FILE_SIZE)"
-    rm -f "$SNAPSHOT_DB"
-else
-    # Check for any ply in export dir
-    GENERATED_PLY=$(ls -t "${EXPORT_DIR}"/*.ply 2>/dev/null | head -n 1)
-    if [ -n "$GENERATED_PLY" ]; then
-        cp -f "$GENERATED_PLY" "$OUTPUT_PLY"
-        echo "[3/3] File 3D ditemukan: $GENERATED_PLY -> $OUTPUT_PLY"
-    else
-        echo "[!] Peringatan: Ekspor manual mungkin diperlukan jika database sedang di-lock penuh."
-    fi
-    rm -f "$SNAPSHOT_DB"
+# Copy point cloud
+if [ -f "${EXPORT_DIR}/subsea_3d_map_cloud.ply" ]; then
+    cp -f "${EXPORT_DIR}/subsea_3d_map_cloud.ply" "$OUTPUT_PLY"
+    cp -f "${EXPORT_DIR}/subsea_3d_map_cloud.ply" "/mnt/c/remote_ROV/subsea_3d_map.ply"
 fi
+
+# Copy mesh
+if [ -f "${EXPORT_DIR}/subsea_3d_mesh_mesh.ply" ]; then
+    cp -f "${EXPORT_DIR}/subsea_3d_mesh_mesh.ply" "${EXPORT_DIR}/subsea_3d_mesh.ply"
+    cp -f "${EXPORT_DIR}/subsea_3d_mesh_mesh.ply" "/mnt/c/remote_ROV/subsea_3d_mesh.ply"
+fi
+
+rm -f "$SNAPSHOT_DB"
+echo "[3/3] BERHASIL! File Dense Point Cloud & Mesh telah diperbarui di C:\\remote_ROV\\"
 
 echo "========================================================"
 echo "Selesai! Buka view_slam_3d_web.html di browser Anda."

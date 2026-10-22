@@ -641,26 +641,40 @@ def generate_document():
     add_h1("III.1 Kerangka Kerja Metodologi Penelitian")
     add_p("Metodologi yang diterapkan dalam penelitian Tugas Akhir ini menggunakan pendekatan rekayasa sistem terstruktur (System Engineering Approach) yang mencakup lima tahapan sistematis: (1) Studi literatur dan analisis kebutuhan fungsional sistem SLAM subsea; (2) Perancangan arsitektur perangkat keras dan komunikasi data berkecepatan tinggi; (3) Pengembangan modul perangkat lunak fusi (ORB-SLAM3, MiDaS Neural Depth, RTAB-Map 3D, dan 2.5D surface); (4) Integrasi penguncian skala metrik fisik multi-sensor; serta (5) Pengujian eksperimental komprehensif, evaluasi metrik kuantitatif, dan validasi visual Digital Twin.")
 
-    add_h1("III.2 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer")
+    add_h1("III.2 Arsitektur Perangkat Keras dan Topologi Komunikasi Subsea Tether BlueROV2")
+    add_p("Integrasi fisik sistem SLAM pada wahana BlueROV2 memadukan tiga subsistem utama: wahana bawah air (subsea vehicle), jalur transmisi data tether netral, dan stasiun kendali permukaan (topside surface control station). Komunikasi berkecepatan tinggi melintasi kabel tether sepanjang 100 hingga 300 meter dimediasi oleh modul Fathom-X yang mengonversi sinyal Ethernet standar ke protokol broadband HomePlug AV via sepasang kabel terpilin (twisted-pair):")
+
+    add_img('gambar_ta/gambar_arsitektur_hardware_tether.png',
+            'Gambar III.1 Topologi Perangkat Keras, Pengkabelan Sensor, dan Komunikasi Subsea Tether BlueROV2 ke Stasiun Permukaan',
+            'Topologi fisik perangkat keras sistem: Subsea Vehicle menaungi kamera CMOS USB, altimeter akustik Ping1D (UART), sensor tekanan hidrostatis Bar30 (I2C), autopilot Pixhawk (MAVLink), companion computer Raspberry Pi 4 (BlueOS), serta modul internal Fathom-X. Data video HD dan telemetri dikirimkan melalui kabel tether netral berprotokol HomePlug AV menuju modul Topside Fathom-X dan laptop stasiun kendali pemetaan ROS.')
+
+    add_h1("III.3 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer")
     add_p("Arsitektur sistem fusi dirancang secara modular ke dalam empat lapisan fungsional (4-Layer Modular Architecture) untuk menjamin pemrosesan multi-thread yang independen dan mencegah terjadinya penurunan frame-rate pada modul pelacakan utama:")
 
     add_img('gambar_ta/gambar_arsitektur_sistem_fusi.png',
-            'Gambar III.1 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer pada Wahana ROV Bawah Air',
+            'Gambar III.2 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer pada Wahana ROV Bawah Air',
             'Diagram alir arsitektur sistem fusi memperlihatkan integrasi empat layer utama: Layer 1 (Akuisisi Sensor ROV dan Streaming MJPEG Relay), Layer 2 (Pelacakan Pose 6-DoF Back-End ORB-SLAM3), Layer 3 (Inferensi Kedalaman AI Monokuler MiDaS dan Koreksi Hiperbolik), dan Layer 4 (Engine Pemetaan 3D RTAB-Map, OctoMap Voxel Grid, Estimasi 2.5D Surface, serta Visualisasi Digital Twin RViz dan Three.js).')
 
     add_p("1. Layer 1 (Sensor & Streaming Acquisition): Mengelola akuisisi citra kamera monokuler ROV pada resolusi 640x480 piksel melalui jembatan streaming MJPEG HTTP terkompresi dengan latensi rendah (< 80 ms), serta membaca data telemetri altimeter akustik Ping1D Sonar dan sensor tekanan hidrostatis Bar30 melalui protokol serial/Mavlink.\n2. Layer 2 (6-DoF Tracking Back-end): Menjalankan algoritma ORB-SLAM3 pada thread terisolasi untuk mengekstraksi fitur FAST, menghitung deskriptor ORB, melakukan pencocokan fitur antar frame, dan mengestimasi matriks transformasi pose kamera T_{w,cam} in SE(3) secara kontinu.\n3. Layer 3 (Dense Neural Depth Inference): Mengalirkan frame citra RGB secara paralel ke model neural network MiDaS DPT yang diakselerasi oleh GPU CUDA untuk menghasilkan peta disparitas rapat, yang kemudian dikonversi menjadi kedalaman metrik fisik melalui formula hiperbolik Z(d).\n4. Layer 4 (3D Mapping, 2.5D Surface, & Digital Twin Visualization): Mengintegrasikan data pose T_{w,cam} dan kedalaman Z(d) yang telah diselaraskan melalui R_align ke dalam RTAB-Map untuk membangun OctoMap 3D Voxel Grid, mengekstraksi bidang dasar 2.5D RANSAC, mengekspor model 3D .PLY, dan menyajikannya secara ganda pada ROS RViz dan Three.js Web Viewer.")
 
+    add_h1("III.4 Arsitektur Komputasi ROS: Node Graph dan Rantai Transformasi TF2")
+    add_p("Implementasi perangkat lunak sistem fusi dibangun di atas ekosistem Robot Operating System (ROS Noetic) yang terdiri dari node-node terdistribusi yang berkomunikasi secara asynchronous via arsitektur publisher-subscriber. Rantai transformasi kerangka koordinat ruang (TF2 Transform Tree) memastikan konsistensi spasial antara pusat datum global (map), kerangka odometri (odom), bodi wahana (base_link), serta seluruh frame sensorik fisik:")
+
+    add_img('gambar_ta/gambar_arsitektur_ros_nodegraph_tf.png',
+            'Gambar III.3 Arsitektur Graf Komputasi ROS (Node Graph) dan Rantai Transformasi Koordinat TF2 Tree pada Sistem Fusi SLAM Bawah Air',
+            'Diagram komputasi perangkat lunak ROS: Bagian atas memperlihatkan alur komunikasi antar node ROS (video_bridge, underwater_clahe, monocular_depth_ai, orb_slam3_odom, ekf_localization, rtabmap_slam, rov_trajectory_tracker, dan egoexo_ground_surface) dengan label topik standar (/camera/image_raw, /rtabmap/odom, /camera/synced/depth, /robot_path). Bagian bawah memperlihatkan hierarki rantai koordinat TF2 Tree dari kerangka global map -> odom -> base_link, yang mencabangkan transformasi statis ke camera_link -> camera_optical_link, ping1d_sonar_link, bar30_depth_link, dan base_imu_link.')
+
     add_img('gambar_ta/gambar_pipeline_3d_mapping.png',
-            'Gambar III.2 Pipeline End-to-End Rekonstruksi 3D Volumetrik, Voxel Grid OctoMap, dan Pembangkitan Digital Twin Bawah Air',
+            'Gambar III.4 Pipeline End-to-End Rekonstruksi 3D Volumetrik, Voxel Grid OctoMap, dan Pembangkitan Digital Twin Bawah Air',
             'Alur pemrosesan pemetaan 3D end-to-end: Citra input RGB diproses secara simultan untuk inferensi kedalaman rapat neural AI dan estimasi pose 6-DoF ORB-SLAM3. Awan titik hasil backprojection dibersihkan menggunakan Statistical Outlier Removal (SOR), difilter ke dalam voxel 0.05 m OctoMap, disematkan bidang dasar 2.5D EgoExo++, diekspor ke file .PLY/.OBJ, dan disajikan pada Three.js Web Viewer.')
 
-    add_h1("III.3 Desain Modul Tracking 6-DoF ORB-SLAM3 dan Estimasi Pose")
+    add_h1("III.5 Desain Modul Tracking 6-DoF ORB-SLAM3 dan Estimasi Pose")
     add_p("Modul pelacakan diimplementasikan menggunakan arsitektur C++ tightly-coupled yang memanfaatkan pustaka OpenCV dan Eigen. Citra RGB berukuran 640x480 piksel diubah ke skala abu-abu (grayscale) dan dibangun piramida citra 8 level dengan rasio skala 1.2. Sebanyak 1.200 hingga 1.500 titik sudut FAST diekstraksi secara terdistribusi merata menggunakan partisi grid quadtree.")
     add_p("Pelacakan gerak antar frame diselesaikan melalui minimasi galat reproyeksi visual (Visual Reprojection Error). Diberikan titik peta ke-j di dunia X_j in R^3 dan pengamatannya pada frame ke-i di koordinat piksel x_{i,j} in R^2, galat residual e_{i,j} dinyatakan sebagai:")
     add_p("e_{i,j} = x_{i,j} - pi(K * (R_i * X_j + t_i)), di mana pi(.) adalah fungsi proyeksi perspektif pinhole dan K adalah matriks intrinsik kamera:")
     add_p("K = [[f_x, 0, c_x], [0, f_y, c_y], [0, 0, 1]]. Matriks kovariansi galat dioptimasi menggunakan algoritma Levenberg-Marquardt dengan fungsi loss Huber yang robust terhadap outlier pencocokan.")
 
-    add_h1("III.4 Modul Inferensi Kedalaman Neural AI dan Koreksi Hiperbolik")
+    add_h1("III.6 Modul Inferensi Kedalaman Neural AI dan Koreksi Hiperbolik")
     add_p("Citra RGB dari streaming MJPEG dimasukkan ke model inferensi MiDaS DPT melalui pustaka PyTorch CUDA. Model menghasilkan matriks disparitas ternormalisasi d_norm in [0, 1] berukuran 640x480 piksel. Nilai d_norm = 1 merepresentasikan objek yang berada paling dekat dengan lensa, sedangkan d_norm = 0 merepresentasikan latar belakang tak terhingga.")
     add_p("Untuk mengubah disparitas relatif ini menjadi kedalaman fisik metrik Z (dalam meter), diturunkan konstanta alpha dan beta berdasarkan batas jarak fisik inspeksi yang telah dikalibrasi di dalam tangki air: z_near = 0.35 meter dan z_far = 4.50 meter. Pada titik terdekat:")
     add_p("Z(1.0) = z_near => 1 / (alpha * 1.0 + beta) = 0.35 => alpha + beta = 1 / 0.35 = 2.8571.")
@@ -670,40 +684,40 @@ def generate_document():
     add_p("Z(d_norm) = 1 / (2.6349 * d_norm + 0.2222).")
 
     add_img('gambar_ta/gambar_grafik_depth_hiperbolik.png',
-            'Gambar III.3 Kurva Karakteristik Pemetaan Hiperbolik Disparitas Neural AI ke Kedalaman Metrik Fisik',
+            'Gambar III.5 Kurva Karakteristik Pemetaan Hiperbolik Disparitas Neural AI ke Kedalaman Metrik Fisik',
             'Grafik karakteristik pemetaan kedalaman: Garis merah putus-putus memperlihatkan pemetaan linier naive yang menghasilkan distorsi geometri parah pada jarak dekat. Garis biru tebal memperlihatkan kurva pemetaan hiperbolik yang sesuai dengan fisika optik pinhole, menjamin resolusi jarak sangat tinggi pada rentang inspeksi dekat (0.35 - 1.5 m) dan melandai secara natural menuju jarak terjauh (4.5 m).')
 
     add_p("Selain pemetaan hiperbolik, sistem mengimplementasikan Inner Boundary Masking sebesar 5% margin di setiap sisi citra (u in [0.05*W, 0.95*W], v in [0.05*H, 0.95*H]). Pemotongan batas ini sangat penting untuk mengeliminasi distorsi radial kubah akrilik kamera dan artefak sayap kipas (fan-wing artifacts) yang sering muncul pada tepi prediksi model CNN.")
 
     add_img('gambar_ta/gambar_boundary_filtering.png',
-            'Gambar III.4 Skema Pemotongan Margin Inner Boundary 5% untuk Mengeliminasi Efek Sayap Kipas (Fan-Wing Artifacts)',
+            'Gambar III.6 Skema Pemotongan Margin Inner Boundary 5% untuk Mengeliminasi Efek Sayap Kipas (Fan-Wing Artifacts)',
             'Skema pemotongan margin 5%: Area abu-abu bergaris selebar 32 piksel pada sisi horizontal dan 24 piksel pada sisi vertikal dibuang (diberi nilai NaN). Hal ini mencegah titik-titik berdisparitas ekstrem pada pinggiran lensa terproyeksi menjadi awan titik palsu berbentuk sayap kipas di visualisasi 3D.')
 
     add_p("Untuk menjaga stabilitas warna pada awan titik 3D dan meredam fluktuasi kecerahan akibat hamburan partikel air, diterapkan perataan temporal warna Exponential Moving Average (EMA) pada setiap voxel: C_t = 0.65 * C_{t-1} + 0.35 * C_{frame}.")
 
-    add_h1("III.5 Penyelarasan Geometris R_align dan Wireframe Frustum Piramida")
+    add_h1("III.7 Penyelarasan Geometris R_align dan Wireframe Frustum Piramida")
     add_p("Setiap piksel citra (u, v) dengan kedalaman terestimasi Z(u, v) di-backproject ke koordinat kartesius 3D kamera melalui invers matriks intrinsik K: X_cam = (u - c_x) * Z / f_x, Y_cam = (v - c_y) * Z / f_y, Z_cam = Z. Vektor p_cam kemudian dikalikan dengan matriks penyelarasan R_align:")
     add_p("p_odom = R_align * p_cam = [[0, 0, 1], [-1, 0, 0], [0, -1, 0]] * [X_cam, Y_cam, Z_cam]^T = [Z_cam, -X_cam, -Y_cam]^T.")
     add_p("Untuk menyajikan visualisasi kamera yang intuitif di RViz, dirancang modul pembuat wireframe piramida frustum kamera 8-rusuk yang merefleksikan orientasi dan sudut pandang (FOV) kamera secara dinamis.")
 
     add_img('gambar_ta/gambar_geometri_piramida.png',
-            'Gambar III.5 Perumusan Geometris 8-Rusuk Wireframe Piramida Frustum Kamera Berorientasi Dinamis',
+            'Gambar III.7 Perumusan Geometris 8-Rusuk Wireframe Piramida Frustum Kamera Berorientasi Dinamis',
             'Geometri 8-rusuk piramida frustum kamera di RViz: Apex piramida V_0 berada pada pusat optis kamera, terhubung dengan 4 garis rusuk menuju empat titik sudut bidang proyeksi dasar V_1, V_2, V_3, V_4 pada jarak kedalaman fokal f_scale. Empat rusuk tambahan menghubungkan keempat sudut bidang dasar membentuk bingkai persegi panjang yang merefleksikan rasio aspek 4:3 kamera ROV.')
 
-    add_h1("III.6 Engine Rekonstruksi 3D Mapping RTAB-Map dan OctoMap Voxel Grid")
+    add_h1("III.8 Engine Rekonstruksi 3D Mapping RTAB-Map dan OctoMap Voxel Grid")
     add_p("Awan titik yang dihasilkan diumpankan ke node RTAB-Map ROS. Pipeline pemetaan volumetrik menerapkan tiga tahap penyaringan terurut: (1) PassThrough Filter yang membatasi kedalaman titik hanya pada rentang metrik valid [0.35 m, 4.50 m]; (2) Voxel Grid Downsampling dengan ukuran sel 0.05 meter untuk mereduksi redundansi data hingga 75% tanpa mengurangi fidelity bentuk objek; serta (3) Statistical Outlier Removal (SOR) dengan parameter k-neighbors = 30 dan threshold pengali deviasi standar sigma = 1.0. Filter SOR sangat efektif dalam mengeliminasi titik-titik liar yang timbul akibat pantulan cahaya lampu pada partikel marine snow.")
     add_p("Data yang telah bersih diintegrasikan ke dalam struktur OctoMap 3D untuk memutakhirkan nilai log-odds okupansi voxel, menghasilkan model volumetrik yang membedakan ruang terisi, ruang bebas fluida, dan ruang belum terjelajah.")
 
-    add_h1("III.7 Estimasi Permukaan Dasar 2.5D RANSAC dan Batimetri Lokal")
+    add_h1("III.9 Estimasi Permukaan Dasar 2.5D RANSAC dan Batimetri Lokal")
     add_p("Mengadaptasi prinsip dasar dari EgoExo++ (Abdullah et al., 2024), modul 2.5D Surface mengumpulkan awan titik 3D pada kuadran bawah wahana. Algoritma RANSAC diaplikasikan secara iteratif (1.000 iterasi) dengan ambang batas jarak inlier 0.04 meter untuk menemukan parameter bidang dasar ax + by + cz + d = 0.")
     add_p("Vektor normal bidang n = [a, b, c]^T diverifikasi terhadap orientasi vektor gravitasi yang diukur oleh sensor inersia internal ROV. Bidang yang teridentifikasi digunakan untuk mengekstraksi kontur batimetri lokal 2.5D dan menjadi acuan dasar bagi sistem kendali kedalaman otomatis wahana untuk mencegah insiden penabrakan dasar laut (anti-grounding control).")
 
-    add_h1("III.8 Penguncian Skala Metrik Melalui Fusi Sonar Ping1D dan Bar30")
+    add_h1("III.10 Penguncian Skala Metrik Melalui Fusi Sonar Ping1D dan Bar30")
     add_p("Untuk menjamin bahwa faktor skala visual monokuler lambda tidak mengalami drift dari waktu ke waktu, diformulasikan fungsi optimasi kuadrat terkecil (least-squares scale optimization) yang memadukan pengukuran translasi vertikal T_z dari SLAM, kedalaman absolut hidrostatis z_bar dari Bar30, dan jarak bebas dasar laut h_sonar dari Ping1D:")
     add_p("lambda* = argmin_lambda { sum_{k=1}^N || lambda * T_{z,k} - z_{bar,k} ||^2 + sum_{k=1}^N || lambda * H_{cam,k} - (z_{bar,k} - h_{sonar,k}) ||^2 }.")
     add_p("Faktor skala lambda* yang diperoleh diumpankan balik secara berkala ke modul registrasi titik awan untuk mengunci dimensi fisik model 3D pada skala meter absolut 1:1.")
 
-    add_h1("III.9 Ekspor Model 3D Metrik (.PLY, .OBJ) dan WebGL Three.js Digital Twin")
+    add_h1("III.11 Ekspor Model 3D Metrik (.PLY, .OBJ) dan WebGL Three.js Digital Twin")
     add_p("Hasil rekonstruksi 3D pada RTAB-Map diekspor ke dalam file Polygon File Format (.PLY) standar menggunakan modul konversi PCL (Point Cloud Library). File .PLY menyimpan koordinat verteks (x, y, z) dalam satuan meter absolut serta komponen warna RGB 8-bit (r, g, b).")
     add_p("Untuk memungkinkan inspeksi jarak jauh tanpa ketergantungan pada sistem operasi Linux/ROS, dibangun antarmuka berbasis web menggunakan Three.js WebGL. Antarmuka ini dilengkapi dengan modul PLYLoader, orbit controls 3D interaktif, pencahayaan simulasi bawah air (directional and ambient underwater lights), serta kamera first-person yang merekonstruksi sudut pandang operator ROV di dalam model Digital Twin yang dihasilkan.")
     doc.add_page_break()

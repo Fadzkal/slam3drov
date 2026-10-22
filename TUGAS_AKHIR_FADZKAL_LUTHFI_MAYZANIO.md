@@ -403,26 +403,44 @@ $$\mathbf{R}_{align} = egin{bmatrix} 0 & 0 & 1 \ -1 & 0 & 0 \ 0 & -1 & 0 \end{b
 ### III.1 Kerangka Kerja Metodologi Penelitian
 Penelitian menerapkan pendekatan System Engineering terstruktur yang mencakup studi literatur, perancangan arsitektur fusi, pengembangan modul perangkat lunak, integrasi multi-sensor, dan pengujian eksperimental.
 
-### III.2 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer
-Sistem fusi dibagi ke dalam empat layer modular independen:
+### III.2 Arsitektur Perangkat Keras dan Topologi Komunikasi Subsea Tether BlueROV2
+Integrasi fisik sistem SLAM pada wahana BlueROV2 memadukan tiga subsistem utama: wahana bawah air (subsea vehicle), jalur transmisi data tether netral, dan stasiun kendali permukaan (topside surface control station). Komunikasi data berkecepatan tinggi sepanjang kabel tether 100-300 meter dimediasi oleh modul Fathom-X yang mengonversi Ethernet standar ke protokol broadband HomePlug AV via sepasang kabel terpilin (twisted-pair):
 
-![Gambar III.1 Arsitektur Sistem Fusi 4-Layer](gambar_ta/gambar_arsitektur_sistem_fusi.png)
-*Gambar III.1: Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer pada Wahana ROV Bawah Air*
+![Gambar III.1 Topologi Perangkat Keras dan Komunikasi Subsea Tether](gambar_ta/gambar_arsitektur_hardware_tether.png)
+*Gambar III.1: Topologi Perangkat Keras, Pengkabelan Sensor, dan Komunikasi Subsea Tether BlueROV2 ke Stasiun Permukaan*
 
 > **Catatan Analisis Gambar III.1:**  
-> Diagram alir arsitektur sistem fusi memperlihatkan integrasi empat layer utama: Layer 1 (Akuisisi Sensor ROV dan Streaming MJPEG Relay), Layer 2 (Pelacakan Pose 6-DoF Back-End ORB-SLAM3), Layer 3 (Inferensi Kedalaman AI Monokuler MiDaS dan Koreksi Hiperbolik), dan Layer 4 (Engine Pemetaan 3D RTAB-Map, OctoMap Voxel Grid, Estimasi 2.5D Surface, serta Visualisasi Digital Twin RViz dan Three.js).
+> Topologi fisik perangkat keras sistem: Subsea Vehicle menaungi kamera CMOS USB, altimeter akustik Ping1D (UART), sensor tekanan hidrostatis Bar30 (I2C), autopilot Pixhawk (MAVLink), companion computer Raspberry Pi 4 (BlueOS), serta modul internal Fathom-X. Data video HD dan telemetri dikirimkan melalui kabel tether netral berprotokol HomePlug AV menuju modul Topside Fathom-X dan laptop stasiun kendali pemetaan ROS.
 
-![Gambar III.2 Pipeline Rekonstruksi 3D Mapping End-to-End](gambar_ta/gambar_pipeline_3d_mapping.png)
-*Gambar III.2: Pipeline End-to-End Rekonstruksi 3D Volumetrik, Voxel Grid OctoMap, dan Pembangkitan Digital Twin Bawah Air*
+### III.3 Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer
+Sistem fusi dibagi ke dalam empat layer modular independen:
+
+![Gambar III.2 Arsitektur Sistem Fusi 4-Layer](gambar_ta/gambar_arsitektur_sistem_fusi.png)
+*Gambar III.2: Arsitektur Lengkap Sistem Fusi Dense Neural-SLAM 4-Layer pada Wahana ROV Bawah Air*
 
 > **Catatan Analisis Gambar III.2:**  
+> Diagram alir arsitektur sistem fusi memperlihatkan integrasi empat layer utama: Layer 1 (Akuisisi Sensor ROV dan Streaming MJPEG Relay), Layer 2 (Pelacakan Pose 6-DoF Back-End ORB-SLAM3), Layer 3 (Inferensi Kedalaman AI Monokuler MiDaS dan Koreksi Hiperbolik), dan Layer 4 (Engine Pemetaan 3D RTAB-Map, OctoMap Voxel Grid, Estimasi 2.5D Surface, serta Visualisasi Digital Twin RViz dan Three.js).
+
+### III.4 Arsitektur Komputasi ROS: Node Graph dan Rantai Transformasi TF2
+Implementasi perangkat lunak sistem fusi dibangun di atas ekosistem Robot Operating System (ROS Noetic) yang terdiri dari node-node terdistribusi yang berkomunikasi secara asynchronous via arsitektur publisher-subscriber. Rantai transformasi kerangka koordinat ruang (TF2 Transform Tree) memastikan konsistensi spasial antara pusat datum global (map), kerangka odometri (odom), bodi wahana (base_link), serta seluruh frame sensorik fisik:
+
+![Gambar III.3 Arsitektur Graf Komputasi ROS dan TF2 Tree](gambar_ta/gambar_arsitektur_ros_nodegraph_tf.png)
+*Gambar III.3: Arsitektur Graf Komputasi ROS (Node Graph) dan Rantai Transformasi Koordinat TF2 Tree pada Sistem Fusi SLAM Bawah Air*
+
+> **Catatan Analisis Gambar III.3:**  
+> Diagram komputasi perangkat lunak ROS: Bagian atas memperlihatkan alur komunikasi antar node ROS (video_bridge, underwater_clahe, monocular_depth_ai, orb_slam3_odom, ekf_localization, rtabmap_slam, rov_trajectory_tracker, dan egoexo_ground_surface) dengan label topik standar (/camera/image_raw, /rtabmap/odom, /camera/synced/depth, /robot_path). Bagian bawah memperlihatkan hierarki rantai koordinat TF2 Tree dari kerangka global map -> odom -> base_link, yang mencabangkan transformasi statis ke camera_link -> camera_optical_link, ping1d_sonar_link, bar30_depth_link, dan base_imu_link.
+
+![Gambar III.4 Pipeline Rekonstruksi 3D Mapping End-to-End](gambar_ta/gambar_pipeline_3d_mapping.png)
+*Gambar III.4: Pipeline End-to-End Rekonstruksi 3D Volumetrik, Voxel Grid OctoMap, dan Pembangkitan Digital Twin Bawah Air*
+
+> **Catatan Analisis Gambar III.4:**  
 > Alur pemrosesan pemetaan 3D end-to-end: Citra input RGB diproses secara simultan untuk inferensi kedalaman rapat neural AI dan estimasi pose 6-DoF ORB-SLAM3. Awan titik hasil backprojection dibersihkan menggunakan Statistical Outlier Removal (SOR), difilter ke dalam voxel 0.05 m OctoMap, disematkan bidang dasar 2.5D EgoExo++, diekspor ke file .PLY/.OBJ, dan disajikan pada Three.js Web Viewer.
 
-### III.3 Desain Modul Tracking 6-DoF ORB-SLAM3 dan Estimasi Pose
+### III.5 Desain Modul Tracking 6-DoF ORB-SLAM3 dan Estimasi Pose
 Frame citra 640x480 piksel dipartisi dalam quadtree untuk mengekstraksi 1.500 fitur FAST. Pelacakan pose kamera $\mathbf{T}_{w,c} = [\mathbf{R} | \mathbf{t}] \in SE(3)$ diselesaikan melalui minimasi galat reproyeksi visual:
 $$\mathbf{e}_{i,j} = \mathbf{x}_{i,j} - \pi(\mathbf{K} \cdot (\mathbf{R}_i \cdot \mathbf{X}_j + \mathbf{t}_i))$$
 
-### III.4 Modul Inferensi Kedalaman Neural AI dan Koreksi Hiperbolik
+### III.6 Modul Inferensi Kedalaman Neural AI dan Koreksi Hiperbolik
 Berdasarkan batas fisik tangki $z_{near} = 0.35$ m dan $z_{far} = 4.50$ m:
 $$lpha + eta = rac{1}{0.35} = 2.8571, \quad eta = rac{1}{4.50} = 0.2222 \implies lpha = 2.6349$$
 Sehingga fungsi kedalaman metrik adalah:

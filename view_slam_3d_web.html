@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subsea ROV 3D SLAM Web Visualizer (Three.js)</title>
+    <title>Subsea ROV 3D SLAM Visualizer - BlueROV2</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             overflow: hidden;
-            background: #030712;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            color: #f1f5f9;
+            background: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #0f172a;
             user-select: none;
             width: 100vw;
             height: 100vh;
@@ -26,6 +26,7 @@
             top: 0;
             left: 0;
             z-index: 1;
+            background: #ffffff;
         }
 
         /* Top Left Header Panel */
@@ -34,47 +35,41 @@
             top: 16px;
             left: 20px;
             z-index: 20;
-            background: rgba(10, 17, 34, 0.88);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(16px);
             padding: 16px 20px;
-            border-radius: 16px;
-            border: 1px solid rgba(0, 229, 255, 0.35);
-            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
-            max-width: 420px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+            max-width: 440px;
         }
 
         .header-title {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .status-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: #10b981;
-            box-shadow: 0 0 10px #10b981;
-            animation: pulse-dot 2s infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
         }
 
         h1 {
-            font-size: 16px;
-            font-weight: 800;
-            color: #00e5ff;
-            letter-spacing: 0.4px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.01em;
             text-transform: uppercase;
         }
 
         .subtitle {
             font-size: 11px;
-            color: #94a3b8;
+            color: #64748b;
             line-height: 1.45;
             margin-bottom: 12px;
         }
@@ -89,76 +84,72 @@
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            background: rgba(0, 229, 255, 0.12);
-            color: #00e5ff;
+            background: #f1f5f9;
+            color: #334155;
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
-            border: 1px solid rgba(0, 229, 255, 0.3);
+            border: 1px solid #cbd5e1;
             font-family: 'JetBrains Mono', monospace;
         }
 
         .badge-green {
-            background: rgba(16, 185, 129, 0.12);
-            color: #10b981;
-            border-color: rgba(16, 185, 129, 0.3);
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
         }
 
-        .badge-purple {
-            background: rgba(168, 85, 247, 0.12);
-            color: #c084fc;
-            border-color: rgba(168, 85, 247, 0.3);
+        .badge-blue {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
         }
 
         /* Buttons & Actions */
         .action-row {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
         .btn {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(255, 255, 255, 0.06);
-            color: #e2e8f0;
+            padding: 7px 11px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #334155;
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
             font-family: inherit;
         }
 
         .btn:hover {
-            background: rgba(0, 229, 255, 0.2);
-            border-color: #00e5ff;
-            color: #00e5ff;
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
         }
 
         .btn.active {
-            background: #00e5ff;
-            color: #030712;
-            border-color: #00e5ff;
-            font-weight: 700;
+            background: #0f172a;
+            color: #ffffff;
+            border-color: #0f172a;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #0284c7, #00e5ff);
-            color: #030712;
-            font-weight: 700;
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 229, 255, 0.35);
+            background: #0284c7;
+            color: #ffffff;
+            border: 1px solid #0284c7;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #0369a1, #38bdf8);
-            color: #fff;
+            background: #0369a1;
+            border-color: #0369a1;
+            color: #ffffff;
         }
 
         /* File Input Hidden */
@@ -170,21 +161,21 @@
             top: 16px;
             right: 20px;
             z-index: 20;
-            background: rgba(10, 17, 34, 0.88);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(16px);
             padding: 16px 18px;
-            border-radius: 16px;
-            border: 1px solid rgba(0, 229, 255, 0.35);
-            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
-            width: 310px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+            width: 300px;
         }
 
         .panel-heading {
             font-size: 11px;
             font-weight: 700;
-            color: #64748b;
+            color: #475569;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
@@ -197,7 +188,7 @@
 
         .control-label {
             font-size: 11px;
-            color: #94a3b8;
+            color: #475569;
             font-weight: 600;
             margin-bottom: 6px;
             display: flex;
@@ -206,38 +197,39 @@
 
         .control-value {
             font-family: 'JetBrains Mono', monospace;
-            color: #00e5ff;
+            color: #0284c7;
             font-weight: 700;
         }
 
         .slider {
             width: 100%;
-            accent-color: #00e5ff;
+            accent-color: #0284c7;
             cursor: pointer;
-            height: 6px;
+            height: 5px;
         }
 
         .select-input {
             width: 100%;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #f1f5f9;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
             padding: 6px 10px;
             border-radius: 6px;
             font-size: 11px;
             font-family: inherit;
             outline: none;
+            transition: border-color 0.15s ease;
         }
 
         .select-input:focus {
-            border-color: #00e5ff;
+            border-color: #0284c7;
         }
 
         /* Dimension Box HUD */
         .dim-card {
-            background: rgba(15, 23, 42, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
             padding: 10px;
             margin-top: 10px;
         }
@@ -251,30 +243,34 @@
         }
 
         .dim-cell {
-            background: rgba(30, 41, 59, 0.5);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             padding: 6px 4px;
             border-radius: 6px;
         }
 
         .dim-cell span {
             font-size: 9px;
-            color: #94a3b8;
+            color: #64748b;
             display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .dim-cell b {
             font-size: 11px;
-            color: #38bdf8;
+            color: #0f172a;
             font-family: 'JetBrains Mono', monospace;
         }
 
         /* Measure Info Box */
         #measure-hud {
-            margin-top: 10px;
+            margin-top: 8px;
             padding: 8px 10px;
-            border-radius: 8px;
-            background: rgba(0, 229, 255, 0.08);
-            border: 1px dashed rgba(0, 229, 255, 0.4);
+            border-radius: 6px;
+            background: #f0fdf4;
+            border: 1px dashed #86efac;
+            color: #166534;
             font-size: 11px;
             font-family: 'JetBrains Mono', monospace;
             display: none;
@@ -287,15 +283,15 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 20;
-            background: rgba(10, 17, 34, 0.92);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(16px);
-            padding: 10px 20px;
-            border-radius: 20px;
-            border: 1px solid rgba(0, 229, 255, 0.35);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
         }
 
         /* Drag & Drop Overlay */
@@ -306,29 +302,19 @@
             width: 100%;
             height: 100%;
             z-index: 100;
-            background: rgba(3, 7, 18, 0.85);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(8px);
-            border: 3px dashed #00e5ff;
+            border: 2px dashed #0284c7;
             display: none;
             align-items: center;
             justify-content: center;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
             pointer-events: none;
         }
 
         #drop-zone.active {
             display: flex;
-        }
-
-        .drop-icon {
-            font-size: 48px;
-            animation: bounce 1s infinite alternate;
-        }
-
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-10px); }
         }
 
         /* Toast Notification */
@@ -338,16 +324,15 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 50;
-            background: rgba(15, 23, 42, 0.95);
-            color: #00e5ff;
-            padding: 8px 18px;
-            border-radius: 20px;
-            border: 1px solid rgba(0, 229, 255, 0.4);
+            background: #0f172a;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 6px;
             font-size: 11px;
             font-family: 'JetBrains Mono', monospace;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.25s ease;
             pointer-events: none;
         }
 
@@ -365,19 +350,19 @@
             display: none;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
-            background: rgba(10, 17, 34, 0.9);
-            padding: 24px 32px;
-            border-radius: 16px;
-            border: 1px solid rgba(0, 229, 255, 0.4);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 20px 28px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid rgba(0, 229, 255, 0.2);
-            border-top-color: #00e5ff;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #0284c7;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
@@ -407,41 +392,40 @@
 
     <!-- Drag & Drop Overlay -->
     <div id="drop-zone">
-        <div class="drop-icon">📦</div>
-        <h2 style="font-size: 20px; color: #00e5ff;">Lepaskan File .PLY / .PCD / .OBJ di Sini</h2>
-        <p style="font-size: 12px; color: #94a3b8;">Format titik 3D otomatis dibaca dan di-render secara interaktif</p>
+        <h2 style="font-size: 18px; font-weight: 700; color: #0284c7;">Tarik dan Lepaskan File .PLY / .OBJ di Sini</h2>
+        <p style="font-size: 12px; color: #64748b;">Format 3D metrik dibaca dan di-render secara otomatis</p>
     </div>
 
     <!-- Top Navigation Header -->
     <div id="top-bar">
         <div class="header-title">
             <span class="status-dot"></span>
-            <h1>3D SLAM Web Viewer</h1>
+            <h1>Subsea 3D SLAM Visualizer</h1>
         </div>
         <p class="subtitle">
-            Visualisasi Interaktif Rekonstruksi 3D Bawah Laut BlueROV2<br>
-            Dense Point Cloud &bull; Fusi Kamera + Depth + EgoExo Floor
+            Digital Twin Bawah Air BlueROV2 &bull; Fusi Kamera + AI Depth + RTAB-Map
         </p>
         
         <div class="badges-row">
-            <span class="badge" id="pointCountBadge">📍 0 Titik 3D</span>
+            <span class="badge" id="pointCountBadge">0 Titik 3D</span>
             <span class="badge badge-green" id="statusBadge">READY</span>
-            <span class="badge badge-purple" id="fileBadge">Belum ada file</span>
+            <span class="badge badge-blue" id="fileBadge">Belum ada file</span>
         </div>
 
         <div class="action-row">
             <input type="file" id="fileInput" accept=".ply,.pcd,.obj">
-            <button class="btn btn-primary" id="btnOpenFile">📂 Buka File (.PLY)</button>
-            <button class="btn" id="btnLoadExport">🔄 Muat Hasil SLAM</button>
-            <button class="btn" id="btnLoadSample">⚡ Sample Box</button>
+            <button class="btn btn-primary" id="btnOpenFile">Buka File (.PLY)</button>
+            <button class="btn" id="btnLoadDense">Dense Point Cloud</button>
+            <button class="btn" id="btnLoadSparse">Sparse ORB-SLAM</button>
+            <button class="btn" id="btnLoadMesh">Solid 3D Mesh</button>
         </div>
     </div>
 
     <!-- Right Controls HUD -->
     <div id="right-panel">
         <div class="panel-heading">
-            <span>Kontrol Render & Sensor</span>
-            <span style="color: #00e5ff; font-family: 'JetBrains Mono', monospace;" id="fpsBadge">60 FPS</span>
+            <span>Kontrol Render & Metrik</span>
+            <span style="color: #0284c7; font-family: 'JetBrains Mono', monospace;" id="fpsBadge">60 FPS</span>
         </div>
 
         <!-- Point Size Slider -->
@@ -461,32 +445,32 @@
             <select class="select-input" id="selectColorMode">
                 <option value="rgb">RGB Asli Kamera (True Color)</option>
                 <option value="elevation">Elevasi Kedalaman Z (Turbo Colormap)</option>
-                <option value="cyan">Deep Sea Cyber (Neon Cyan)</option>
-                <option value="monochrome">Monokrom / Intensitas</option>
+                <option value="ocean">Monokrom Biru Laut (Ocean Blue)</option>
+                <option value="monochrome">Monokrom / Abu-abu Intensitas</option>
             </select>
         </div>
 
         <!-- Ground & Grid Toggles -->
-        <div class="control-group" style="display: flex; gap: 8px;">
-            <button class="btn active" id="btnToggleFloor" style="flex: 1;">🌊 Lantai EgoExo</button>
-            <button class="btn active" id="btnToggleGrid" style="flex: 1;">📐 Grid 1m</button>
-            <button class="btn" id="btnToggleBBox" style="flex: 1;">📦 BBox</button>
+        <div class="control-group" style="display: flex; gap: 6px;">
+            <button class="btn active" id="btnToggleFloor" style="flex: 1; justify-content: center;">Lantai Datum</button>
+            <button class="btn active" id="btnToggleGrid" style="flex: 1; justify-content: center;">Grid 1m</button>
+            <button class="btn" id="btnToggleBBox" style="flex: 1; justify-content: center;">Bounding Box</button>
         </div>
 
         <!-- Measurement Tool -->
         <div class="control-group">
             <button class="btn" id="btnMeasure" style="width: 100%; justify-content: center;">
-                📏 Ukur Jarak Titik-ke-Titik (Ruler)
+                Ukur Jarak Metrik (Ruler)
             </button>
             <div id="measure-hud">
-                Klik 2 titik untuk ukur jarak:<br>
-                <b id="measureDist" style="color: #00e5ff; font-size: 13px;">Pilih Titik A...</b>
+                Klik 2 titik pada model:<br>
+                <b id="measureDist" style="color: #166534; font-size: 12px;">Pilih Titik 1...</b>
             </div>
         </div>
 
         <!-- Metric Dimensions Card -->
         <div class="dim-card">
-            <div style="font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">
+            <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">
                 Dimensi Metrik Peta SLAM
             </div>
             <div class="dim-grid">
@@ -508,22 +492,22 @@
 
     <!-- Bottom Camera Navigation Bar -->
     <div id="bottom-panel">
-        <button class="btn active" id="btnViewOrbit">🌐 3D Orbit</button>
-        <button class="btn" id="btnViewTop">⬆️ Tampak Atas (Top)</button>
-        <button class="btn" id="btnViewSide">➡️ Tampak Samping</button>
-        <button class="btn" id="btnViewFront">⚓ Sudut ROV</button>
-        <button class="btn" id="btnResetCam">🔄 Reset</button>
-        <button class="btn" id="btnScreenshot">📸 Snapshot</button>
+        <button class="btn active" id="btnViewOrbit">Orbit 3D</button>
+        <button class="btn" id="btnViewTop">Tampak Atas</button>
+        <button class="btn" id="btnViewSide">Tampak Samping</button>
+        <button class="btn" id="btnViewFront">Sudut ROV</button>
+        <button class="btn" id="btnResetCam">Reset Kamera</button>
+        <button class="btn" id="btnScreenshot">Tangkapan Layar</button>
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast">File berhasil dimuat!</div>
+    <div id="toast">File berhasil dimuat</div>
 
     <!-- Loading Modal -->
     <div id="loader">
         <div class="spinner"></div>
-        <div style="font-size: 12px; color: #00e5ff; font-family: 'JetBrains Mono', monospace;" id="loaderText">
-            Membaca Point Cloud 3D...
+        <div style="font-size: 11px; color: #334155; font-family: 'JetBrains Mono', monospace;" id="loaderText">
+            Membaca data 3D...
         </div>
     </div>
 
@@ -531,8 +515,7 @@
         // --- 1. Scene, Camera, Renderer Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x030712);
-        scene.fog = new THREE.FogExp2(0x030712, 0.015);
+        scene.background = new THREE.Color(0xffffff); // Pure white background
 
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 1000);
         camera.position.set(0, -4, 3);
@@ -541,6 +524,7 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0xffffff, 1.0);
         container.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -548,42 +532,42 @@
         controls.dampingFactor = 0.08;
         controls.target.set(0, 2, 0);
 
-        // Ambient & Directional Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+        // Ambient & Directional Lighting for Clean White Background
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
         scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0x00e5ff, 0.5);
-        dirLight.position.set(5, 5, 10);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.55);
+        dirLight.position.set(6, 6, 12);
         scene.add(dirLight);
 
-        // --- 2. EgoExo++ Ground Surface & Metric Grid ---
+        // --- 2. Ground Surface & Metric Grid ---
         const groundGroup = new THREE.Group();
         scene.add(groundGroup);
 
-        // 1m x 1m Metric Grid
-        const gridHelper = new THREE.GridHelper(20, 20, 0x00e5ff, 0x1e293b);
+        // 1m x 1m Metric Grid for White Background (Dark slate center, clear slate-400 subgrid)
+        const gridHelper = new THREE.GridHelper(30, 30, 0x1e293b, 0x94a3b8);
         gridHelper.rotation.x = Math.PI / 2; // Rotate for Z-up
         gridHelper.position.z = -0.01;
         groundGroup.add(gridHelper);
 
-        // EgoExo++ Soft Teal Ground Surface Plane (#5B8C9B with alpha)
-        const groundPlaneGeo = new THREE.PlaneGeometry(20, 20);
+        // Soft datum ground plane
+        const groundPlaneGeo = new THREE.PlaneGeometry(30, 30);
         const groundPlaneMat = new THREE.MeshBasicMaterial({
-            color: 0x5b8c9b,
+            color: 0x64748b,
             transparent: true,
-            opacity: 0.22,
+            opacity: 0.06,
             depthWrite: false
         });
         const groundPlane = new THREE.Mesh(groundPlaneGeo, groundPlaneMat);
         groundGroup.add(groundPlane);
 
-        // ROV Origin Marker (Red box + mini coordinate axes)
+        // ROV Origin Marker (Dark Slate Body + REP 103 Axes: X-Red Forward, Y-Green Left, Z-Blue Up)
         const rovBodyGeo = new THREE.BoxGeometry(0.35, 0.25, 0.2);
-        const rovBodyMat = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+        const rovBodyMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
         const rovMarker = new THREE.Mesh(rovBodyGeo, rovBodyMat);
         rovMarker.position.set(0, 0, 0.1);
         scene.add(rovMarker);
 
-        const axesHelper = new THREE.AxesHelper(0.6);
+        const axesHelper = new THREE.AxesHelper(0.7);
         scene.add(axesHelper);
 
         // Bounding Box Helper
@@ -604,7 +588,7 @@
             setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        function showLoader(text = 'Membaca Point Cloud 3D...') {
+        function showLoader(text = 'Membaca data 3D...') {
             document.getElementById('loaderText').textContent = text;
             document.getElementById('loader').style.display = 'flex';
         }
@@ -632,7 +616,7 @@
             document.getElementById('dimZ').textContent = size.z.toFixed(2) + ' m';
 
             const numPoints = geometry.attributes.position.count;
-            document.getElementById('pointCountBadge').textContent = '📍 ' + numPoints.toLocaleString() + ' Titik 3D';
+            document.getElementById('pointCountBadge').textContent = numPoints.toLocaleString() + ' Titik 3D';
             document.getElementById('fileBadge').textContent = fileName;
             document.getElementById('statusBadge').textContent = 'RENDERED';
 
@@ -644,34 +628,44 @@
             if (geometry.attributes.color) {
                 originalColors = geometry.attributes.color.clone();
             } else {
-                // Generate default cyan/blue colors if none exist
+                // Generate default blue colors if none exist
                 const colors = new Float32Array(numPoints * 3);
                 for (let i = 0; i < numPoints; i++) {
-                    colors[i * 3 + 0] = 0.0;
-                    colors[i * 3 + 1] = 0.9;
-                    colors[i * 3 + 2] = 1.0;
+                    colors[i * 3 + 0] = 0.1;
+                    colors[i * 3 + 1] = 0.45;
+                    colors[i * 3 + 2] = 0.85;
                 }
                 geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                 originalColors = geometry.attributes.color.clone();
             }
 
-            // Material
-            const pointSize = parseFloat(document.getElementById('sliderPointSize').value);
-            const material = new THREE.PointsMaterial({
-                size: pointSize * 0.02,
-                vertexColors: true,
-                sizeAttenuation: true
-            });
-
-            currentPointCloud = new THREE.Points(geometry, material);
+            // Check if geometry contains faces (Mesh) or is purely points
+            if (geometry.index && geometry.index.count > 0) {
+                geometry.computeVertexNormals();
+                const meshMaterial = new THREE.MeshStandardMaterial({
+                    vertexColors: true,
+                    roughness: 0.5,
+                    metalness: 0.1,
+                    side: THREE.DoubleSide
+                });
+                currentPointCloud = new THREE.Mesh(geometry, meshMaterial);
+            } else {
+                const pointSize = parseFloat(document.getElementById('sliderPointSize').value);
+                const material = new THREE.PointsMaterial({
+                    size: pointSize * 0.035,
+                    vertexColors: true,
+                    sizeAttenuation: true
+                });
+                currentPointCloud = new THREE.Points(geometry, material);
+            }
             scene.add(currentPointCloud);
 
-            // Bounding box helper
-            bboxHelper = new THREE.Box3Helper(bbox, 0x00e5ff);
+            // Bounding box helper (clean navy blue)
+            bboxHelper = new THREE.Box3Helper(bbox, 0x2563eb);
             bboxHelper.visible = document.getElementById('btnToggleBBox').classList.contains('active');
             scene.add(bboxHelper);
 
-            // Adjust ground grid to bottom of point cloud if needed
+            // Adjust ground grid to bottom of point cloud
             groundGroup.position.z = Math.min(0, bbox.min.z);
 
             // Center camera smoothly
@@ -680,13 +674,14 @@
             controls.update();
 
             hideLoader();
-            showToast(`Berhasil memuat ${numPoints.toLocaleString()} titik dari ${fileName}!`);
+            showToast(`Memuat ${numPoints.toLocaleString()} titik dari ${fileName}`);
         }
 
         // --- 5. Color Mode Applicator ---
         function updateColorMode(mode) {
             if (!currentPointCloud) return;
             const geom = currentPointCloud.geometry;
+            if (!geom.attributes.color || !geom.attributes.position) return;
             const count = geom.attributes.position.count;
             const colors = geom.attributes.color.array;
             const pos = geom.attributes.position.array;
@@ -700,22 +695,21 @@
                 for (let i = 0; i < count; i++) {
                     const z = pos[i * 3 + 2];
                     const t = Math.max(0, Math.min(1, (z - minZ) / zRange));
-                    // Turbo / Jet RGB interpolation
                     colors[i * 3 + 0] = Math.sin(t * Math.PI);
                     colors[i * 3 + 1] = Math.sin(t * Math.PI * 0.7);
                     colors[i * 3 + 2] = Math.cos(t * Math.PI * 0.5);
                 }
-            } else if (mode === 'cyan') {
+            } else if (mode === 'ocean') {
                 for (let i = 0; i < count; i++) {
-                    colors[i * 3 + 0] = 0.0;
-                    colors[i * 3 + 1] = 0.85 + Math.random() * 0.15;
-                    colors[i * 3 + 2] = 1.0;
+                    colors[i * 3 + 0] = 0.05;
+                    colors[i * 3 + 1] = 0.45 + Math.random() * 0.15;
+                    colors[i * 3 + 2] = 0.85;
                 }
             } else if (mode === 'monochrome') {
                 for (let i = 0; i < count; i++) {
-                    const r = originalColors ? originalColors.array[i * 3] : 0.8;
-                    const g = originalColors ? originalColors.array[i * 3 + 1] : 0.8;
-                    const b = originalColors ? originalColors.array[i * 3 + 2] : 0.8;
+                    const r = originalColors ? originalColors.array[i * 3] : 0.5;
+                    const g = originalColors ? originalColors.array[i * 3 + 1] : 0.5;
+                    const b = originalColors ? originalColors.array[i * 3 + 2] : 0.5;
                     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
                     colors[i * 3 + 0] = lum;
                     colors[i * 3 + 1] = lum;
@@ -725,9 +719,9 @@
             geom.attributes.color.needsUpdate = true;
         }
 
-        // --- 6. File Handlers (Local & ArrayBuffer) ---
+        // --- 6. File Handlers ---
         function loadArrayBuffer(buffer, filename) {
-            showLoader(`Parsing format 3D (${filename})...`);
+            showLoader(`Membaca file (${filename})...`);
             setTimeout(() => {
                 try {
                     const ext = filename.split('.').pop().toLowerCase();
@@ -742,7 +736,6 @@
                         const objLoader = new THREE.OBJLoader();
                         const text = new TextDecoder().decode(buffer);
                         const obj = objLoader.parse(text);
-                        // Extract points from meshes
                         const geometries = [];
                         obj.traverse(child => {
                             if (child.isMesh && child.geometry) {
@@ -753,10 +746,9 @@
                             setPointCloudGeometry(geometries[0], filename);
                         } else {
                             hideLoader();
-                            alert('Obj file tidak memiliki vertex mesh.');
+                            alert('File OBJ tidak memiliki vertex mesh.');
                         }
                     } else {
-                        // Fallback try PLY
                         const geom = plyLoader.parse(buffer);
                         setPointCloudGeometry(geom, filename);
                     }
@@ -799,30 +791,30 @@
             }
         });
 
-        // Load Sample Button
-        document.getElementById('btnLoadSample').addEventListener('click', () => {
-            showLoader('Memuat underwater_container_3d.ply...');
-            plyLoader.load('underwater_container_3d.ply', 
-                (geom) => setPointCloudGeometry(geom, 'underwater_container_3d.ply'),
+        // Button Quick Loaders
+        function loadNamedPly(path, label) {
+            showLoader(`Memuat ${label}...`);
+            const cacheBustPath = path + (path.includes('?') ? '&' : '?') + 'v=' + Date.now();
+            plyLoader.load(cacheBustPath,
+                (geom) => setPointCloudGeometry(geom, label),
                 undefined,
                 (err) => {
                     hideLoader();
-                    showToast('Gunakan tombol "📂 Buka File" untuk memilih .ply langsung dari disk.');
+                    showToast(`Gagal memuat ${path}. Pastikan file ada di folder.`);
                 }
             );
+        }
+
+        document.getElementById('btnLoadDense').addEventListener('click', () => {
+            loadNamedPly('export/subsea_3d_map.ply', 'Dense Point Cloud (subsea_3d_map.ply)');
         });
 
-        // Load Export Button (from RTAB-Map export)
-        document.getElementById('btnLoadExport').addEventListener('click', () => {
-            showLoader('Memuat export/subsea_3d_map.ply...');
-            plyLoader.load('export/subsea_3d_map.ply',
-                (geom) => setPointCloudGeometry(geom, 'subsea_3d_map.ply'),
-                undefined,
-                (err) => {
-                    hideLoader();
-                    showToast('File export/subsea_3d_map.ply belum ada. Jalankan export_3d_map.bat terlebih dahulu!');
-                }
-            );
+        document.getElementById('btnLoadSparse').addEventListener('click', () => {
+            loadNamedPly('KeyFrameMapPoints.ply', 'Sparse MapPoints (KeyFrameMapPoints.ply)');
+        });
+
+        document.getElementById('btnLoadMesh').addEventListener('click', () => {
+            loadNamedPly('subsea_3d_mesh.ply', 'Solid 3D Mesh (subsea_3d_mesh.ply)');
         });
 
         // Point Size Slider
@@ -830,8 +822,8 @@
         sliderPointSize.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
             document.getElementById('valPointSize').textContent = val.toFixed(1) + ' px';
-            if (currentPointCloud) {
-                currentPointCloud.material.size = val * 0.02;
+            if (currentPointCloud && currentPointCloud.isPoints) {
+                currentPointCloud.material.size = val * 0.035;
             }
         });
 
@@ -908,7 +900,7 @@
             a.download = 'subsea_3d_slam_screenshot.png';
             a.href = dataUrl;
             a.click();
-            showToast('📸 Screenshot berhasil disimpan!');
+            showToast('Tangkapan layar berhasil disimpan');
         });
 
         // --- 8. Metric Distance Measurement Tool ---
@@ -934,7 +926,6 @@
 
         window.addEventListener('click', (e) => {
             if (!isMeasuring || !currentPointCloud) return;
-            // Ignore UI clicks
             if (e.target.closest('#top-bar') || e.target.closest('#right-panel') || e.target.closest('#bottom-panel')) return;
 
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -951,16 +942,15 @@
                     measureDist.textContent = `Titik 1: (${pt.x.toFixed(2)}, ${pt.y.toFixed(2)}, ${pt.z.toFixed(2)}). Klik Titik 2...`;
                 } else if (measurePoints.length === 2) {
                     const d = measurePoints[0].distanceTo(measurePoints[1]);
-                    measureDist.innerHTML = `Jarak: <span style="font-size:15px;color:#10b981;">${d.toFixed(3)} meter</span> (${(d * 100).toFixed(1)} cm)`;
+                    measureDist.innerHTML = `Jarak Metrik: <span style="font-size:14px;color:#166534;font-weight:700;">${d.toFixed(3)} meter</span> (${(d * 100).toFixed(1)} cm)`;
 
-                    // Draw line
                     const lineGeo = new THREE.BufferGeometry().setFromPoints(measurePoints);
-                    const lineMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3 });
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0x166534, linewidth: 3 });
                     if (measureLine) scene.remove(measureLine);
                     measureLine = new THREE.Line(lineGeo, lineMat);
                     scene.add(measureLine);
 
-                    measurePoints = []; // reset for next measurement
+                    measurePoints = [];
                 }
             }
         });
@@ -992,9 +982,10 @@
         }
         animate();
 
-        // Auto try to load sample container on initial page open
+        // Auto try to load real Dense 3D map on initial page open
         setTimeout(() => {
-            document.getElementById('btnLoadSample').click();
+            const btn = document.getElementById('btnLoadDense');
+            if (btn) btn.click();
         }, 300);
     </script>
 </body>

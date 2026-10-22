@@ -47,13 +47,13 @@ Camera.RGB: 1
 ThDepth: 40.0
 
 #--------------------------------------------------------------------------------------------
-# ORB Extractor Parameters (Sensitivitas Tinggi untuk Ruangan Indoor)
+# ORB Extractor Parameters (Sensitivitas Tinggi untuk Bawah Air & Objek Kontainer)
 #--------------------------------------------------------------------------------------------
-ORBextractor.nFeatures: 1500
+ORBextractor.nFeatures: 2500
 ORBextractor.scaleFactor: 1.2
 ORBextractor.nLevels: 8
-ORBextractor.iniThFAST: 15
-ORBextractor.minThFAST: 5
+ORBextractor.iniThFAST: 12
+ORBextractor.minThFAST: 4
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters (Pangolin 3D OpenGL)

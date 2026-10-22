@@ -18,9 +18,14 @@ if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     mkdir -p ~/catkin_ws/src/subsea_3d_mapping/rviz
     cp /mnt/c/remote_ROV/subsea_mapping.rviz ~/catkin_ws/src/subsea_3d_mapping/rviz/subsea_mapping.rviz
     cp /mnt/c/remote_ROV/live_orbslam_dense_mapping.launch ~/catkin_ws/src/subsea_3d_mapping/launch/
+    mkdir -p ~/slam_ws
+    cp /mnt/c/remote_ROV/webcam_640.yaml ~/slam_ws/webcam_640.yaml
     (cd ~/catkin_ws && catkin_make)
     source "$HOME/catkin_ws/devel/setup.bash"
 fi
+
+# Pastikan waktu WSL2 sinkron dengan hardware Windows
+sudo hwclock -s 2>/dev/null || true
 
 export DISPLAY=${DISPLAY:-:0}
 

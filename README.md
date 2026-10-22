@@ -296,48 +296,48 @@ Semua file telah disinkronkan antara folder Windows `c:\remote_ROV` dan folder C
 
 ## 6. Visualisasi 3D Web Interaktif (Three.js) & Ekspor Model 3D
 
-Selain dilihat di RViz, hasil pemetaan 3D padat (*Dense 3D Point Cloud*) dari RTAB-Map SLAM dapat dibuka langsung di browser web berbasis **Three.js** tanpa memerlukan ROS, Linux, ataupun X-Server!
+Selain dilihat di RViz, hasil pemetaan 3D padat (*Dense 3D Point Cloud* & *Solid Mesh*) dari fusi ORB-SLAM3 + Depth AI MiDaS + RTAB-Map dapat dibuka langsung di browser web berbasis **Three.js** tanpa memerlukan ROS, Linux, ataupun X-Server!
 
-### Fitur Web Viewer Three.js:
-- **Orbit 360° & Zoom Bebas**: Navigasi interaktif menggunakan mouse / touch gesture.
-- **Skema Pewarnaan Fleksibel**:
-  - *RGB Asli*: Warna asli dari kamera HD bawah air.
-  - *Elevasi Z (Depth Color)*: Turbo/Jet gradient menunjukkan kontur kedalaman.
-  - *Deep Sea Cyber*: Visualisasi neon cyan kontras tinggi.
-- **Alat Ukur Jarak (Interactive Ruler)**: Klik 2 titik pada point cloud untuk mengukur dimensi objek secara akurat dalam centimeter / meter.
-- **Lantai 2.5D EgoExo & Grid Metrik 1m**: Memberikan orientasi spasial dan skala nyata bawah air.
-- **Drag & Drop / File Browser**: Membaca file `.ply`, `.pcd`, dan `.obj` secara instan langsung dari disk lokal tanpa hambatan CORS.
-- **Snapshot Generator**: Simpan gambar 3D beresolusi tinggi (PNG) untuk laporan dan publikasi.
+### Fitur Baru Web Viewer 3D (Edisi Publikasi Ilmiah):
+- **Latar Belakang Putih Murni (`#FFFFFF`) & Bebas Emoji**: Didesain secara formal dan elegan berstandar publikasi jurnal internasional dan pedoman baku Tugas Akhir Polman Bandung.
+- **Dukungan Ganda (Point Cloud & Solid Mesh)**:
+  - *Dense Point Cloud*: Ratusan ribu titik 3D rapat hasil estimasi kedalaman kontinu MiDaS AI.
+  - *Sparse ORB-SLAM*: Puluhan ribu titik acuan penjejakan pose 6-DoF kamera.
+  - *Solid 3D Mesh*: Model poligon permukaan padat bertekstur/berwarna (hingga 350.000+ poligon).
+- **Skema Pewarnaan Presisi**:
+  - *RGB Asli Kamera (True Color)*: Warna alami dari rekaman visual bawah laut.
+  - *Elevasi Kedalaman Z (Turbo Colormap)*: Gradasi warna kontur kedalaman (ungu/biru di dasar, merah/kuning di atas).
+  - *Monokrom Biru Laut & Intensitas*: Visualisasi monokromatik kontras tinggi.
+- **Alat Ukur Jarak Metrik Fisik (Interactive 3D Ruler)**: Mengukur dimensi benda riil (panjang, lebar, diameter pipa/kontainer) dalam satuan meter dan centimeter secara presisi.
+- **Lantai Datum & Grid Metrik 1 Meter**: Garis grid abu-abu presisi (*engineering grid*) sebagai referensi spasial dan batas keselamatan navigasi ROV.
+- **Drag & Drop Cepat**: Cukup seret file `.ply` atau `.obj` mana saja ke layar browser untuk langsung di-render pada 60 FPS.
 
-### Cara Menggunakan:
-1. **Buka Web Viewer (Kapan Saja)**:
-   > Dobel klik [**`open_3d_web_viewer.bat`**](file:///c:/remote_ROV/open_3d_web_viewer.bat) atau buka [**`view_slam_3d_web.html`**](file:///c:/remote_ROV/view_slam_3d_web.html) di Google Chrome / Edge.
-2. **Ekspor Otomatis Peta SLAM Terbaru**:
-   > Dobel klik [**`export_3d_map.bat`**](file:///c:/remote_ROV/export_3d_map.bat). Skrip akan mengekstrak `rtabmap.db` menjadi `export/subsea_3d_map.ply` dan langsung meluncurkan viewer di browser.
+### Cara Menjalankan (1 Klik):
+> Dobel klik file [**`lihat_3d_lokal.bat`**](file:///c:/remote_ROV/lihat_3d_lokal.bat). Web server lokal otomatis aktif dan membuka `http://localhost:8888/view_slam_3d_web.html`.
 
 ---
 
-## 7. ORB-SLAM3: 3D Visual SLAM & Real-Time Webcam Integration
+## 7. Sistem Auto-Timestamp & Arsip Pengujian Otomatis
 
-Selain pipeline RTAB-Map ROS, repositori ini telah dilengkapi dengan integrasi penuh **ORB-SLAM3** (Campos et al., 2021) untuk pemetaan 3D dan pelacakan lintasan berkecepatan tinggi:
+Untuk mendukung kebutuhan pengujian eksperimental komparatif pada Tugas Akhir, sistem telah dilengkapi dengan mekanisme pencatatan dan pengarsipan otomatis:
+- Setiap kali pengujian SLAM dihentikan (`Ctrl + C`), file utama ([`KeyFrameMapPoints.ply`](file:///c:/remote_ROV/KeyFrameMapPoints.ply) & [`KeyFrameTrajectory.txt`](file:///c:/remote_ROV/KeyFrameTrajectory.txt)) otomatis diperbarui agar Web Viewer langsung membaca data terbaru.
+- **Sekaligus**, salinan arsip permanen disimpan di folder [`export/`](file:///c:/remote_ROV/export/) dengan format stempel waktu:
+  - `export/KeyFrameMapPoints_YYYYMMDD_HHMMSS.ply`
+  - `export/KeyFrameTrajectory_YYYYMMDD_HHMMSS.txt`
+  - `export/subsea_3d_map_YYYYMMDD_HHMMSS.ply`
+  - `export/subsea_3d_mesh_YYYYMMDD_HHMMSS.ply`
+- Menjamin tidak ada data pengujian yang hilang atau tertimpa selama proses pengambilan sampel di kolam uji maupun simulasi.
 
-### Fitur Utama ORB-SLAM3:
-1. **WSL2 Native Build + GPU Direct3D 12**:
-   - `libORB_SLAM3.so` (5.08 MB) dan `mono_live` C++ binary berjalan di dalam WSL2 Ubuntu 20.04.
-   - Antarmuka visual 3D Pangolin terhubung ke WSLg Direct3D 12 dengan akselerasi hardware penuh (`mesa: D3D12 AMD Radeon Graphics`).
-2. **Zero-Latency MJPEG Webcam Bridge (`mjpeg_webcam_bridge.py`)**:
-   - Menghubungkan webcam fisik Windows 11 ke dalam WSL2 via jaringan lokal LAN (`http://<host>:8088/stream.mjpg`).
-   - `cv2.CAP_PROP_BUFFERSIZE = 1`: Mencegah video delay 1–2 detik pada DirectShow.
-   - `ThreadingHTTPServer`: Mendukung preview browser dan koneksi ORB-SLAM3 secara bersamaan tanpa lag.
-   - **Filter Otomatis Anti-OBS**: Mendeteksi perangkat DirectShow via `pygrabber`, otomatis memblokir *OBS Virtual Camera*, dan memilih webcam fisik (`USB Camera` / `Logitech C922`).
-3. **Konfigurasi Kamera Optimal (`webcam_640.yaml`)**:
-   - Format standar ORB-SLAM3 v1.0 (`File.version: "1.0"`).
-   - Sensitivitas ORB diekstraksi hingga **1500 titik** (`ORBextractor.nFeatures: 1500`) dengan ambang FAST diturunkan (`iniThFAST: 15, minThFAST: 5`) untuk kestabilan pelacakan di dalam ruangan maupun rekaman bawah air.
+---
 
-### Panduan Menjalankan:
-- **ORB-SLAM3 Live 3D Mapping**:
-  > Dobel klik [**`run_orbslam3.bat`**](file:///c:/remote_ROV/run_orbslam3.bat) -> Pilih `[2]` untuk Live Webcam (atau `[1]` untuk video ROV).
-- **Live Visual Odometry 100% CPU (Windows Murni)**:
-  > Dobel klik [**`run_live_vo_webcam.bat`**](file:///c:/remote_ROV/run_live_vo_webcam.bat) -> Tekan `1` (USB Camera). Dashboard pelacakan titik Optical Flow dan peta lintasan 2D (*Top-down map*) akan langsung aktif.
+## 8. Stabilitas & Optimalisasi SLAM
+
+1. **Jaminan Waktu Monotonik (*Monotonic Timestamp Guard*)**:
+   - Pada [`src/orb_slam3_odom_node.cpp`](file:///c:/remote_ROV/src/orb_slam3_odom_node.cpp), diterapkan filter penjaga $t_{\text{frame}} \ge t_{\text{last}} + 0.001\text{ s}$ dan sinkronisasi stempel waktu antara Odometri, Transformasi TF, dan visualisasi Marker. Mengeliminasi *TF extrapolation warnings* dan lonjakan waktu mundur (*jump backwards in time*) di WSL2.
+2. **Pangolin Multi-Map Rendering**:
+   - Visualizer internal ORB-SLAM3 kini mengiterasi seluruh peta aktif maupun arsip melalui `mpAtlas->GetAllMaps()`, sehingga titik peta 3D tidak menghilang saat pelacak membuat sub-peta baru (*new Atlas map*).
+3. **Penyelarasan Ekstraktor ORB**:
+   - Ambang FAST diturunkan (`iniThFAST: 12`, `minThFAST: 4`) dan kapasitas fitur ditingkatkan (`nFeatures: 2500`) untuk mempertahankan *tracking lock* pada kondisi air keruh atau minim tekstur.
+
 
 
