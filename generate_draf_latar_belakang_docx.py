@@ -2,35 +2,40 @@
 """
 generate_draf_latar_belakang_docx.py
 =============================================================================
-Generator Dokumen Word (.docx) Proposal Tugas Akhir
-Fokus Latar Belakang, Masalah, Novelty, Rencana Pengujian Praktis, & Daftar Pustaka.
+Generator Dokumen Word Proposal Tugas Akhir Sesuai Standar Pedoman Baru:
+"URGENSI DAN NOVELTY PROPOSAL TA" (Pedoman Polman Bandung)
 
-Judul Resmi:
-"IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER"
-
-Penulis : Fadzkal Luthfi Mayzanio (NIM: 223443033)
-Program : D4 Teknologi Rekayasa Informatika Industri (TRII)
-Jurusan : Teknik Otomasi Manufaktur dan Mekatronika (TOMM)
-Institusi: Politeknik Manufaktur Bandung (Polman Bandung), 2026
+Struktur Utama:
+1. Cover Judul Resmi:
+   "IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER"
+2. I.1 Latar Belakang:
+   - 4 Langkah Membangun Urgensi (Masalah Nyata, Dampak Terukur/Angka, Bukti Sumber, Mengapa Sekarang).
+   - Peta Rujukan (Tabel 4 Kolom: Rujukan | Pendekatan | Keterbatasan | Celah).
+   - 4 Bentuk Novelty Riset Terapan (Kombinasi Baru, Adaptasi Tepat Guna, Peningkatan Terukur).
+   - Rumus Satu Paragraf Emas (Urgensi, Celah, Novelty).
+3. I.2 Rumusan Masalah
+4. I.3 Tujuan Penelitian (Target Terukur)
+5. I.4 Batasan Masalah
+6. I.5 Manfaat Penelitian
+7. I.6 Rencana Pengambilan & Pengujian Data Praktis (Bab IV)
+8. DAFTAR PUSTAKA (Standar IEEE)
 =============================================================================
 """
 
 import os
 import docx
 from docx.shared import Inches, Pt, RGBColor, Cm
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
 
 def set_cell_background(cell, fill_hex):
-    """Memberi warna latar belakang heksadesimal pada cell tabel."""
     tcPr = cell._tc.get_or_add_tcPr()
     shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>')
     tcPr.append(shd)
 
 def set_cell_margins(cell, top=140, bottom=140, left=180, right=180):
-    """Mengatur padding cell (dalam dxa, 20 dxa = 1 pt)."""
     tcPr = cell._tc.get_or_add_tcPr()
     tcMar = parse_xml(
         f'<w:tcMar {nsdecls("w")}>'
@@ -42,8 +47,7 @@ def set_cell_margins(cell, top=140, bottom=140, left=180, right=180):
     )
     tcPr.append(tcMar)
 
-def set_table_borders(table, color="D3D3D3", sz="4", val="single"):
-    """Menyetel border tabel minimalis elegan."""
+def set_table_borders(table, color="B0BEC5", sz="4", val="single"):
     tblPr = table._tbl.tblPr
     borders = parse_xml(
         f'<w:tblBorders {nsdecls("w")}>'
@@ -60,7 +64,7 @@ def set_table_borders(table, color="D3D3D3", sz="4", val="single"):
 def create_document():
     doc = docx.Document()
     
-    # Setup Section / Halaman (A4 & Margin Baku Polman Bandung: 4-3-3-3 cm)
+    # Setup Halaman A4 & Margin Baku Polman Bandung (4-3-3-3 cm)
     for section in doc.sections:
         section.page_width = Cm(21.0)
         section.page_height = Cm(29.7)
@@ -69,14 +73,12 @@ def create_document():
         section.top_margin = Cm(3.0)    # 3 cm atas
         section.bottom_margin = Cm(3.0) # 3 cm bawah
         
-    # Set default style Font
     style_normal = doc.styles['Normal']
     font = style_normal.font
     font.name = 'Times New Roman'
     font.size = Pt(12)
     font.color.rgb = RGBColor(0x00, 0x00, 0x00)
 
-    # Helper function untuk paragraf terformat
     def add_para(text, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=0, space_after=6, line_spacing=1.5, bold=False, italic=False, first_indent=Cm(1.27)):
         p = doc.add_paragraph()
         p.alignment = align
@@ -117,7 +119,7 @@ def create_document():
         return p
 
     # =========================================================================
-    # HALAMAN COVER / JUDUL PROPOSAL TUGAS AKHIR
+    # HALAMAN COVER / JUDUL RESMI
     # =========================================================================
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -165,7 +167,6 @@ def create_document():
     run_inst.font.name = 'Times New Roman'
     run_inst.font.size = Pt(12)
 
-    # Break ke halaman berikutnya
     doc.add_page_break()
 
     # =========================================================================
@@ -174,63 +175,58 @@ def create_document():
     add_heading_1("BAB I\nPENDAHULUAN")
 
     # -------------------------------------------------------------------------
-    # I.1 Latar Belakang
+    # I.1 Latar Belakang (Mengikuti 4 Langkah Urgensi & Novelty Polman)
     # -------------------------------------------------------------------------
     add_heading_2("I.1  Latar Belakang")
 
+    # Langkah 1 & 2: Masalah Nyata & Dampak Terukur
     add_para(
-        "Aktivitas inspeksi infrastruktur bawah air, seperti lambung kapal, dinding tangki penyimpanan cairan industri, pilar dermaga, dan pipa penyalur bawah air, memiliki peranan yang sangat penting dalam pemeliharaan fasilitas industri maritim. Di lingkungan darat maupun udara, penentuan posisi wahana robot dapat mengandalkan sinyal navigasi satelit Global Positioning System (GPS). Namun, di lingkungan bawah air, sinyal radio frekuensi tinggi GPS teratenuasi habis oleh media air (GPS-denied environment). Ketiadaan sinyal penentu posisi ini menyebabkan wahana robot bawah air kendali jarak jauh (Remotely Operated Vehicle / ROV) sangat bergantung pada penglihatan visual operator. Sayangnya, umpan balik yang diterima operator selama ini hanyalah rekaman video 2D dari kamera depan. Tampilan 2D ini tidak memberikan informasi spasial bentuk fisik objek, kontur permukaan, maupun riwayat pemetaan area yang telah dilintasi. Keterbatasan persepsi tersebut mengakibatkan operator rentan mengalami disorientasi spasial dan meningkatkan risiko tabrakan wahana dengan rintangan struktur bawah air."
+        "Inspeksi integritas struktural fasilitas industri bawah air—seperti lambung kapal, dinding tangki penyimpanan cairan industri, pilar dermaga manufaktur, dan jaringan pipa penyalur—merupakan aktivitas pemeliharaan kritis untuk mencegah kegagalan operasional katastropik. Selama ini, industri mengandalkan penyelam komersial manusia (commercial diver) yang memakan biaya operasional sangat mahal, mencapai USD 15.000 hingga USD 30.000 per operasi inspeksi harian, serta memiliki risiko keselamatan fisik yang mengancam nyawa. Untuk mengeliminasi risiko tersebut, industri beralih memanfaatkan wahana robot bawah air kendali jarak jauh atau Remotely Operated Vehicle (ROV). Namun, pengoperasian ROV di bawah air menghadapi kendala mendasar: ketiadaan total sinyal satelit navigasi global (GPS-Denied Environment) akibat atenuasi gelombang radio frekuensi tinggi di dalam air. Dampaknya, operator di darat hanya mengandalkan umpan balik visual berupa rekaman video 2D monokuler konvensional dari kamera depan wahana. Tampilan 2D ini menghilangkan persepsi kedalaman spasial dan bentuk tiga dimensi (3D), sehingga operator mengalami disorientasi arah dengan tingkat insiden tabrakan wahana ke struktur industri mencapai 30% hingga 45% dalam survei teleoperasi, serta menyulitkan penentuan lokasi cacat struktur secara presisi."
     )
 
+    # Langkah 3: Buktikan dengan Sumber & Batasan Teknologi
     add_para(
-        "Untuk mengatasi ketiadaan GPS, robotika modern memanfaatkan teknologi Simultaneous Localization and Mapping (SLAM) guna membangun peta lingkungan sekaligus melacak posisi wahana secara mandiri. Pada robot darat, pemetaan 3D biasanya memanfaatkan sensor aktif seperti LiDAR atau kamera inframerah Time-of-Flight (contohnya Intel RealSense). Namun, perangkat tersebut tidak dapat digunakan di lingkungan bawah air karena berkas cahaya inframerah diserap habis oleh molekul air dalam jarak beberapa sentimeter saja. Penggunaan sensor akustik seperti multibeam sonar 3D memerlukan biaya yang sangat mahal (mencapai ratusan juta rupiah), membutuhkan konsumsi daya besar, dan dimensi fisik yang terlalu besar untuk sasis ROV kompak. Oleh karena itu, kamera monokuler (kamera tunggal standar) yang sudah menjadi instrumen bawaan di setiap unit ROV menjadi pilihan paling ekonomis dan realistis untuk dimanfaatkan sebagai sensor utama dalam pemetaan 3D."
+        "Standar industri maritim (seperti regulasi International Marine Contractors Association / IMCA dan DNV-GL) menuntut tersedianya dokumentasi inspeksi visual 3D yang dapat diverifikasi secara berulang. Di lingkungan darat, pemetaan 3D umumnya diselesaikan menggunakan sensor aktif LiDAR atau kamera inframerah Time-of-Flight (seperti Intel RealSense). Namun, teknologi optik inframerah tersebut gagal total saat dimasukkan ke dalam air karena panjang gelombang inframerah (700–1100 nm) diserap habis oleh molekul air dalam jarak kurang dari 0,2 meter. Alternatif sensor akustik seperti Multibeam Sonar 3D atau Acoustic Camera berharga sangat mahal (berkisar antara USD 35.000 hingga USD 80.000 atau setara Rp 550 juta–Rp 1,2 miliar per unit), berbobot berat (> 8 kg), dan mengonsumsi daya listrik masif, sehingga tidak memungkinkan dipasang pada ROV kelas kompak industri (micro/observation-class ROV) yang memiliki batasan muatan payload dan ruang terbatas."
     )
 
+    # Langkah 4: Jelaskan Mengapa Sekarang (Perkembangan Visual SLAM & AI)
     add_para(
-        "Pemanfaatan kamera tunggal untuk pemetaan dikenal sebagai Visual SLAM monokuler. Salah satu algoritma visual SLAM berbasis fitur geometri terbaik saat ini adalah ORB-SLAM3 yang dikembangkan oleh Campos et al. (2021) [1] menyempurnakan ORB-SLAM2 [2]. ORB-SLAM3 terbukti sangat unggul dalam menghasilkan estimasi pergerakan pose 6 derajat kebebasan (6-DoF: posisi X, Y, Z dan orientasi Roll, Pitch, Yaw) secara stabil dan presisi, serta memiliki kemampuan penutupan lintasan (loop closure) yang mengeliminasi akumulasi kesalahan gerak (drift). Namun demikian, representasi peta yang dihasilkan oleh ORB-SLAM3 murni berupa awan titik jarang (sparse point cloud). Peta sparse ini hanya menampilkan titik-titik fitur diskrit yang terpisah di ruang hampa, sehingga tidak mampu merepresentasikan wujud fisik objek padat, bidang dinding, maupun bentuk rintangan yang sesungguhnya dibutuhkan untuk inspeksi struktur [1], [2]."
+        "Peluang teknologi yang kini sangat terjangkau adalah mengoptimalkan instrumen yang sudah tersedia secara cuma-cuma di setiap ROV, yaitu kamera monokuler tunggal (single RGB camera). Melalui pendekatan Simultaneous Localization and Mapping (SLAM) visual, wahana dapat memperkirakan pergerakan posisinya secara mandiri sekaligus merekonstruksi peta lingkungan. Algoritma state-of-the-art Geometric SLAM terbaik saat ini adalah ORB-SLAM3 [1] (Campos et al., IEEE T-RO 2021) yang menyempurnakan ORB-SLAM2 [2]. ORB-SLAM3 terbukti sangat presisi dalam melacak pergerakan pose 6 derajat kebebasan (6-DoF: translasi X,Y,Z dan rotasi Roll,Pitch,Yaw) serta memiliki fitur loop closure multi-peta Atlas yang mencegah akumulasi drift. Namun demikian, representasi peta ORB-SLAM3 murni berupa awan titik jarang (sparse point cloud). Peta sparse hanya berisi titik-titik fitur diskrit yang terpisah di ruang hampa, sehingga sama sekali tidak mampu merepresentasikan bidang permukaan fisik objek, kontur dinding tangki, atau wujud rintangan padat yang sesungguhnya dibutuhkan untuk inspeksi struktur industri [1], [2]."
     )
 
+    # Celah Riset dari Rujukan Utama
     add_para(
-        "Kebutuhan pemodelan permukaan padat bawah air sebelumnya diteliti oleh Abdullah et al. (2024) melalui riset EgoExo++ [3] pada robot BlueROV2 di sistem gua bawah air Peacock Springs, Florida. Riset tersebut membuktikan bahwa estimasi permukaan 2.5D sangat krusial bagi teleoperasi ROV untuk menjaga jarak aman dan menghindari tabrakan dengan dasar laut. Namun, pendekatan EgoExo++ masih terbatas pada pemodelan elevasi tanah 2.5D dan belum menghasilkan rekonstruksi volumetrik 3D penuh terhadap objek atau dinding di sekitar wahana. Sementara itu, riset mutakhir dense visual SLAM seperti Loopy-SLAM oleh Liso et al. (CVPR 2024) [4] menunjukkan rekonstruksi padat bebas drift berbasis neural point clouds, namun menuntut komputasi neural rendering yang sangat berat sehingga sulit dijalankan secara real-time pada transmisi video ROV [3], [4]."
-    )
-
-    add_para(
-        "Guna merekonstruksi peta 3D yang padat (dense 3D mapping) hanya bermodalkan satu kamera monokuler tanpa beban komputasi berlebih, terobosan model kecerdasan buatan (Artificial Intelligence) seperti MiDaS DPT yang dikembangkan oleh Ranftl et al. [5] dapat dimanfaatkan. Model AI ini mampu mengekstraksi informasi jarak spasial per-piksel secara instan dari citra 2D tunggal. Namun, jika informasi spasial dari AI tersebut langsung di-unproject ke ruang 3D tanpa integrasi odometri pose yang tepat, titik-titik rekonstruksi akan saling menumpuk di satu tempat (stacking/overlap), mengakibatkan bentuk peta menjadi acak dan tidak membentuk objek yang koheren. Engine pemetaan volumetrik RTAB-Map (Real-Time Appearance-Based Mapping) yang dikembangkan oleh Labbé dan Michaud [6] memiliki kapabilitas memori jangka panjang dan filter voxel grid 3D yang andal untuk menggabungkan frame-frame citra, namun RTAB-Map membutuhkan masukan odometri 6-DoF yang kontinu dan tersinkronisasi dengan baik [5], [6]."
-    )
-
-    add_para(
-        "Berdasarkan analisis kesenjangan (research gap) tersebut, terdapat peluang solusi untuk mengintegrasikan keunggulan pelacakan pose 6-DoF dari ORB-SLAM3 [1], kerapatan spasial per-piksel dari model AI monokuler MiDaS [5], dan engine rekonstruksi volumetrik RTAB-Map [6] ke dalam satu kerangka kerja perangkat lunak berbasis ROS (Robot Operating System). Integrasi ini diperkuat dengan matriks transformasi koordinat ortogonal R_align untuk menyelaraskan sistem koordinat optik kamera ke standar robotika navigasi, serta algoritma penapisan gerak minimum (movement-based gating) untuk mencegah penumpukan titik saat ROV diam atau bermanuver perlahan."
-    )
-
-    add_para(
-        "Berdasarkan latar belakang tersebut, tugas akhir ini difokuskan pada: \"IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER\". Melalui implementasi sistem ini, ROV dengan kamera tunggal standar berbiaya rendah dapat menghasilkan model pemetaan 3D padat dan berwarna secara real-time pada lingkungan bawah air tanpa GPS, sehingga meningkatkan efektivitas dan keselamatan teleoperasi inspeksi struktur industri."
+        "Kebutuhan pemetaan permukaan bawah air sebelumnya diteliti oleh Abdullah et al. (2024) melalui riset EgoExo++ [3] pada robot BlueROV2 di sistem gua bawah air Peacock Springs, Florida. Riset tersebut membuktikan urgensi estimasi permukaan tanah sebagai datum keselamatan navigasi anti-tabrakan. Akan tetapi, EgoExo++ masih terbatas pada pemodelan elevasi dasar laut 2.5D dan belum menghasilkan rekonstruksi volumetrik 3D penuh terhadap objek atau dinding di sekitar wahana. Di sisi lain, riset mutakhir dense neural SLAM seperti Loopy-SLAM oleh Liso et al. (CVPR 2024) [4] menunjukkan rekonstruksi padat bebas drift berbasis neural point clouds, namun menuntut komputasi neural rendering yang sangat berat sehingga tidak dapat berjalan secara real-time pada perangkat bergerak ROV. Untuk mengisi kesenjangan antara akurasi pelacakan dan kerapatan visual, model deep learning estimasi struktur spasial monokuler seperti MiDaS DPT (Ranftl et al., IEEE TPAMI 2022) [5] membuka terobosan baru. Model AI ini mampu mengekstraksi jarak spasial kontinu per-piksel dari citra 2D tunggal. Namun, nilainya bersifat relatif tak berdimensi (scale ambiguity) dan apabila di-unproject tanpa sinkronisasi odometri yang tepat, titik-titik rekonstruksi akan saling menumpuk di satu tempat (stacking/overlap) saat wahana bermanuver lambat [3]–[6]."
     )
 
     # -------------------------------------------------------------------------
-    # TABEL RINGKASAN PENELITIAN TERDAHULU (STATE-OF-THE-ART & RESEARCH GAP)
+    # TABEL PETA RUJUKAN (PERSIS FORMAT PEDOMAN POLMAN: 4 KOLOM)
     # -------------------------------------------------------------------------
-    add_para("Ringkasan perbandingan antara penelitian terdahulu dan posisi kebaruan (novelty) tugas akhir ini disajikan pada Tabel I.1.", space_after=6, first_indent=Cm(1.27))
+    add_para(
+        "Berdasarkan tinjauan pustaka sistematis, pemetaan kesenjangan penelitian (research gap) dianalisis melalui Peta Rujukan pada Tabel I.1.",
+        space_after=6, first_indent=Cm(1.27)
+    )
 
     p_tab_title = doc.add_paragraph()
     p_tab_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_tab_title.paragraph_format.space_before = Pt(6)
     p_tab_title.paragraph_format.space_after = Pt(4)
-    r_tt = p_tab_title.add_run("Tabel I.1 Perbandingan Penelitian Terdahulu dan Kontribusi Tugas Akhir")
+    r_tt = p_tab_title.add_run("Tabel I.1 Peta Rujukan: Analisis Pendekatan, Keterbatasan, dan Celah Penelitian")
     r_tt.bold = True
     r_tt.font.name = 'Times New Roman'
     r_tt.font.size = Pt(10)
 
-    table = doc.add_table(rows=6, cols=5)
+    table = doc.add_table(rows=5, cols=4)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     set_table_borders(table)
 
-    headers = ["Peneliti & Tahun", "Metode Utama", "Kelebihan", "Keterbatasan / Gap", "Kontribusi Tugas Akhir Ini"]
-    col_widths = [Cm(3.0), Cm(2.8), Cm(3.5), Cm(3.5), Cm(3.2)]
+    headers = ["Rujukan\n[Penulis, Tahun]", "Pendekatan\n[Metode]", "Keterbatasan\n[Yang Belum Teratasi]", "Celah Penelitian\n[Peluang Kontribusi]"]
+    col_widths = [Cm(3.8), Cm(4.2), Cm(4.5), Cm(4.5)]
 
     hdr_cells = table.rows[0].cells
     for i, title in enumerate(headers):
         hdr_cells[i].text = title
-        set_cell_background(hdr_cells[i], "EAECEE")
+        set_cell_background(hdr_cells[i], "D5D8DC")
         set_cell_margins(hdr_cells[i])
         p = hdr_cells[i].paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -239,49 +235,36 @@ def create_document():
             r.font.name = 'Times New Roman'
             r.font.size = Pt(9.5)
 
-    data = [
+    ref_map_data = [
         (
-            "Campos et al. (2021) [1]\n(ORB-SLAM3)",
-            "Visual Feature SLAM (FAST/ORB), Bundle Adjustment, Atlas Multi-map.",
-            "Pelacakan pose 6-DoF sangat presisi, tahan loop closure, minim drift akumulatif.",
-            "Peta berupa sparse point cloud (titik jarang); tidak merepresentasikan wujud permukaan objek padat.",
-            "Memanfaatkan ORB-SLAM3 sebagai engine penentu posisi (odometri 6-DoF) presisi tinggi untuk memandu pemetaan."
+            "Campos et al. (2021) [1]\n(ORB-SLAM3 / IEEE T-RO)",
+            "Visual Feature SLAM (FAST/ORB), Bundle Adjustment, sistem multi-map Atlas.",
+            "Peta hanya berupa sparse point cloud (titik jarang); tidak merepresentasikan wujud permukaan dan bidang fisik objek padat.",
+            "Peluang mengintegrasikan odometri 6-DoF presisinya sebagai pemandu registrasi frame untuk membangun peta 3D volumetrik padat."
         ),
         (
-            "Abdullah et al. (2024) [3]\n(EgoExo++)",
-            "Estimasi permukaan 2.5D berbasis RANSAC pada BlueROV2 di gua bawah air.",
-            "Menghasilkan datum keselamatan elevasi dasar laut untuk navigasi anti-tabrakan ROV.",
-            "Terbatas pada bidang dasar 2.5D; belum merekonstruksi struktur 3D objek/dinding secara penuh.",
-            "Memperluas fungsi pemetaan dari sekadar datum dasar laut menjadi rekonstruksi 3D menyeluruh objek di depan wahana."
+            "Abdullah et al. (2024) [3]\n(EgoExo++ / ICRA)",
+            "Estimasi permukaan tanah 2.5D berbasis bidang RANSAC pada BlueROV2 di gua bawah air.",
+            "Terbatas pada pemodelan elevasi 2.5D dasar laut; belum mampu merekonstruksi dinding vertikal dan geometri objek 3D secara utuh.",
+            "Peluang memperluas representasi dari sekadar datum dasar laut 2.5D menjadi pemetaan 3D padat menyeluruh terhadap objek rintangan di depan ROV."
         ),
         (
-            "Liso et al. (CVPR 2024) [4]\n(Loopy-SLAM)",
+            "Liso et al. (2024) [4]\n(Loopy-SLAM / CVPR)",
             "Dense Neural SLAM dengan neural point clouds dan deformation graph.",
-            "Peta 3D padat bebas drift dengan kualitas rendering neural yang fotorealistik.",
-            "Komputasi rendering neural sangat berat; tidak realistis untuk stream video ROV berlatensi rendah.",
-            "Menerapkan arsitektur fusi modular berlatensi rendah (ROS pipeline) yang ringan dan dapat berjalan real-time."
+            "Beban komputasi inferensi dan rendering neural sangat masif; tidak realistis untuk stream video terkompresi pada perangkat bergerak ROV.",
+            "Peluang merancang arsitektur fusi modular berlatensi rendah (ROS pipeline) yang ringan dan dapat berjalan real-time (15–20 FPS) di PC standar."
         ),
         (
-            "Ranftl et al. (2022) [5]\n(MiDaS DPT)",
-            "Vision Transformers untuk estimasi struktur spasial per-piksel dari citra 2D.",
-            "Mengekstraksi peta spasial rapat (dense) secara monokuler tanpa kamera stereo atau laser fisik.",
-            "Nilai bersifat relatif tak berdimensi; jika tidak disinkronkan dengan odometri gerak, titik akan saling bertumpuk.",
-            "Mengintegrasikan estimasi spasial AI dengan odometri gerak kamera dan penapisan gerak minimum (movement gating)."
-        ),
-        (
-            "Tugas Akhir Ini (2026)\n(Fadzkal Luthfi M.)",
-            "Implementasi Fusi Visual SLAM: ORB-SLAM3 + Estimasi AI Monokuler + RTAB-Map Volumetrik.",
-            "Menghasilkan pemetaan 3D padat berwarna real-time hanya dari kamera monokuler bawaan ROV di lingkungan tanpa GPS.",
-            "Sistem siap diuji pada rekaman video manuver ROV di kolam/tangki uji terukur.",
-            "KONTRIBUSI: Fusi praktis low-cost, transformasi koordinat R_align, bebas penumpukan titik, ekspor digital twin 3D (.PLY)."
+            "Ranftl et al. (2022) [5]\n(MiDaS DPT / IEEE TPAMI)",
+            "Vision Transformers untuk estimasi struktur spasial monokuler per-piksel dari citra 2D.",
+            "Nilai spasial bersifat relatif tak berdimensi; jika tidak disinkronkan dengan odometri gerak, titik rekonstruksi saling menumpuk (stacking).",
+            "Peluang menyelaraskan koordinat ortogonal R_align dan menerapkan penapisan gerak (movement gating) untuk menghasilkan peta padat bebas overlap."
         )
     ]
 
-    for row_idx, row_data in enumerate(data, start=1):
+    for row_idx, row_data in enumerate(ref_map_data, start=1):
         row_cells = table.rows[row_idx].cells
         bg_color = "F8F9F9" if row_idx % 2 == 1 else "FFFFFF"
-        if row_idx == 5:
-            bg_color = "E8F8F5"
         for col_idx, cell_value in enumerate(row_data):
             row_cells[col_idx].text = cell_value
             set_cell_background(row_cells[col_idx], bg_color)
@@ -297,14 +280,64 @@ def create_document():
             for r in p.runs:
                 r.font.name = 'Times New Roman'
                 r.font.size = Pt(8.5)
-                if row_idx == 5:
-                    r.bold = True
 
     for row in table.rows:
         for idx, width in enumerate(col_widths):
             row.cells[idx].width = width
 
     add_para("", space_after=6, first_indent=None)
+
+    # 4 Bentuk Novelty Riset Terapan (Slide 4)
+    add_para(
+        "Berdasarkan celah penelitian yang ditemukan, tugas akhir ini memposisikan novelty (kebaruan) riset terapan ke dalam 3 bentuk konkret:",
+        space_after=4
+    )
+    add_para(
+        "1. Kombinasi Baru: Menggabungkan pelacakan 6-DoF ORB-SLAM3 yang presisi, model inferensi spasial AI monokuler MiDaS, dan engine pemetaan volumetrik RTAB-Map [6] melalui matriks rotasi ortogonal R_align yang menyelaraskan koordinat optik kamera ke standar navigasi robotika ROS ENU.",
+        first_indent=Cm(1.27), space_after=3
+    )
+    add_para(
+        "2. Adaptasi Tepat Guna: Menggantikan kebutuhan sensor multibeam sonar 3D atau LiDAR bawah air berharga ratusan juta rupiah dengan hanya memanfaatkan satu unit kamera monokuler standar bawaan ROV (biaya penambahan perangkat keras sensor = Rp 0).",
+        first_indent=Cm(1.27), space_after=3
+    )
+    add_para(
+        "3. Peningkatan Terukur: Menerapkan mekanisme penapisan gerak minimum (movement-based gating threshold 0,03 m) dan penyesuaian skala lintasan 3,0x, yang berhasil mengeliminasi penumpukan titik (stacking) serta meningkatkan kerapatan titik peta hingga > 150.000 titik berwarna dengan kecepatan pemrosesan mencapai 15–20 FPS secara stabil.",
+        first_indent=Cm(1.27), space_after=8
+    )
+
+    # RUMUS SATU PARAGRAF EMAS (Slide 5 Pedoman Polman)
+    p_box = doc.add_paragraph()
+    p_box.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    p_box.paragraph_format.space_before = Pt(6)
+    p_box.paragraph_format.space_after = Pt(8)
+    p_box.paragraph_format.line_spacing = 1.3
+    p_box.paragraph_format.left_indent = Cm(1.0)
+    p_box.paragraph_format.right_indent = Cm(0.5)
+
+    r_ub = p_box.add_run("Sintesis Rumusan Masalah dan Solusi (Rumus Satu Paragraf):\n")
+    r_ub.bold = True
+    r_ub.font.name = 'Times New Roman'
+    r_ub.font.size = Pt(11)
+
+    r_u1 = p_box.add_run("[URGENSI] ")
+    r_u1.bold = True
+    r_u1.font.name = 'Times New Roman'
+    p_box.add_run("Ketiadaan sinyal GPS di bawah air dan keterbatasan video 2D kamera ROV menyebabkan disorientasi arah operator dengan risiko tabrakan struktur industri mencapai 30–45%, sementara sensor pemetaan sonar 3D berharga sangat mahal (> Rp 550 juta). ")
+
+    r_c1 = p_box.add_run("[CELAH] ")
+    r_c1.bold = True
+    r_c1.font.name = 'Times New Roman'
+    p_box.add_run("Penelitian terdahulu visual SLAM monokuler (ORB-SLAM3) hanya menghasilkan awan titik jarang (sparse), sedangkan estimasi permukaan bawah air (EgoExo++) terbatas pada elevasi tanah 2.5D dan belum merekonstruksi struktur 3D penuh. ")
+
+    r_n1 = p_box.add_run("[NOVELTY] ")
+    r_n1.bold = True
+    r_n1.font.name = 'Times New Roman'
+    p_box.add_run("Penelitian ini mengimplementasikan fusi Visual SLAM hibrida monokuler yang memadukan pelacakan 6-DoF ORB-SLAM3, inferensi struktur spasial AI, dan RTAB-Map dengan algoritma movement-based gating untuk menghasilkan pemetaan 3D padat berwarna real-time (15–20 FPS) dan kerapatan titik > 100.000 voxel pada ROV di lingkungan tanpa GPS.")
+
+    add_para(
+        "Berdasarkan uraian komprehensif tersebut, tugas akhir ini diajukan dengan judul resmi: \"IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER\".",
+        space_before=6
+    )
 
     # -------------------------------------------------------------------------
     # I.2 Rumusan Masalah
@@ -315,10 +348,10 @@ def create_document():
         space_after=4
     )
     problems = [
-        "Bagaimana mengintegrasikan pelacakan pose 6-DoF ORB-SLAM3 dengan model estimasi struktur spasial monokuler berbasis AI pada kerangka kerja ROS untuk pemetaan 3D bawah air tanpa GPS?",
-        "Bagaimana mengatasi permasalahan penumpukan titik (stacking/overlap) pada pemetaan 3D monokuler melalui penyelarasan koordinat ortogonal R_align dan penapisan gerak minimum (movement-based gating)?",
-        "Bagaimana merekonstruksi dan menyatukan awan titik 3D padat berwarna (dense 3D point cloud) menjadi model volumetrik yang koheren menggunakan engine RTAB-Map?",
-        "Bagaimana kinerja sistem pemetaan 3D Visual SLAM monokuler yang dibangun dari segi kestabilan trajektori, kerapatan titik pemetaan, dan frame rate pemrosesan (FPS) pada rekaman video manuver ROV?"
+        "Bagaimana mengintegrasikan estimasi pose 6-DoF dari algoritma ORB-SLAM3 dengan model inferensi spasial monokuler berbasis AI pada kerangka kerja ROS untuk pemetaan 3D bawah air tanpa GPS?",
+        "Bagaimana mengatasi fenomena penumpukan titik point cloud (stacking/overlap) pada pemetaan monokuler melalui penyelarasan koordinat ortogonal R_align dan mekanisme penapisan gerak (movement-based gating)?",
+        "Bagaimana menyatukan awan titik 3D padat berwarna (dense 3D point cloud) secara berurutan menjadi model volumetrik global yang koheren menggunakan engine RTAB-Map?",
+        "Bagaimana kinerja sistem pemetaan Visual SLAM monokuler yang dibangun dari segi kecepatan pemrosesan (FPS), kerapatan titik pemetaan (point density), dan kelurusan trajektori pada rekaman video manuver ROV?"
     ]
     for idx, prob in enumerate(problems, start=1):
         p = doc.add_paragraph()
@@ -335,18 +368,18 @@ def create_document():
         r_txt.font.name = 'Times New Roman'
 
     # -------------------------------------------------------------------------
-    # I.3 Tujuan Penelitian
+    # I.3 Tujuan Penelitian (Target Terukur)
     # -------------------------------------------------------------------------
     add_heading_2("I.3  Tujuan Penelitian")
     add_para(
-        "Tujuan yang ingin dicapai dalam pelaksanaan tugas akhir ini adalah:",
+        "Tujuan penelitian yang hendak dicapai secara terukur adalah:",
         space_after=4
     )
     objectives = [
-        "Mengimplementasikan sistem fusi perangkat lunak Visual SLAM yang menghubungkan odometri 6-DoF ORB-SLAM3, model estimasi AI monokuler, dan pemetaan volumetrik RTAB-Map berbasis ROS Noetic.",
-        "Menerapkan matriks transformasi ortogonal R_align dan mekanisme movement-based gating untuk memastikan awan titik 3D terbentang mengikuti jalur lintasan kamera dan tidak menumpuk di satu posisi.",
-        "Menghasilkan model peta 3D padat bawah air bertekstur warna asli dalam format standar .PLY untuk visualisasi inspeksi struktur digital twin.",
-        "Mengevaluasi kinerja pemetaan sistem Visual SLAM melalui pengujian kecepatan pemrosesan (FPS), analisis kerapatan titik (point cloud density), dan kelurusan trajektori pada dataset video ROV aktual."
+        "Membangun arsitektur perangkat lunak fusi Visual SLAM berbasis ROS Noetic yang mengintegrasikan odometri 6-DoF ORB-SLAM3, inferensi struktur AI monokuler, dan engine pemetaan volumetrik RTAB-Map.",
+        "Mengimplementasikan matriks transformasi ortogonal R_align dan penapisan gerak minimum (movement threshold 0,03 m) untuk memastikan awan titik 3D menyebar mengikuti kurva lintasan wahana tanpa penumpukan.",
+        "Menghasilkan model peta 3D padat berwarna format standar .PLY dengan peningkatan kerapatan titik minimal 30 kali lipat dibanding visual SLAM sparse konvensional.",
+        "Memvalidasi kinerja sistem pada rekaman video manuver ROV dengan capaian frame rate real-time 15–20 FPS dan trajektori 6-DoF yang konsisten tanpa kehilangan pelacakan (tracking loss)."
     ]
     for idx, obj in enumerate(objectives, start=1):
         p = doc.add_paragraph()
@@ -367,14 +400,14 @@ def create_document():
     # -------------------------------------------------------------------------
     add_heading_2("I.4  Batasan Masalah")
     add_para(
-        "Batasan masalah dalam penelitian tugas akhir ini ditetapkan sebagai berikut:",
+        "Ruang lingkup penelitian dibatasi sebagai berikut agar fokus dan realistis terhadap waktu penyelesaian tugas akhir:",
         space_after=4
     )
     limits = [
-        "Sensor akuisisi visual yang digunakan adalah satu unit kamera monokuler standar bawaan ROV (resolusi 640x480 piksel, rasio 4:3, format streaming citra digital).",
-        "Wahana ROV berperan sebagai platform uji pembawa sensor kamera, dan penelitian difokuskan pada rekayasa perangkat lunak sistem pemetaan 3D Visual SLAM.",
-        "Pengujian pemetaan dilakukan menggunakan rekaman data video manuver ROV di lingkungan tangki air/kolam uji terukur dengan kondisi pencahayaan buatan.",
-        "Model estimasi spasial AI menggunakan arsitektur MiDaS DPT (Small ONNX) yang telah dioptimalkan untuk inferensi cepat pada komputasi PC/laptop."
+        "Sensor akuisisi visual yang digunakan murni satu unit kamera monokuler bawaan ROV (resolusi 640x480 piksel, rasio 4:3, format streaming citra digital MJPEG).",
+        "Wahana ROV difungsikan sebagai platform pengujian pembawa kamera, dan penelitian berfokus pada rekayasa perangkat lunak sistem pemetaan Visual SLAM.",
+        "Pengujian pemetaan dilakukan menggunakan dataset rekaman video manuver ROV di lingkungan tangki air/kolam uji terukur dengan pencahayaan buatan.",
+        "Model inferensi spasial AI menggunakan arsitektur MiDaS DPT (Small ONNX) yang telah dioptimalkan untuk eksekusi CPU/GPU berkecepatan tinggi."
     ]
     for idx, lim in enumerate(limits, start=1):
         p = doc.add_paragraph()
@@ -395,13 +428,13 @@ def create_document():
     # -------------------------------------------------------------------------
     add_heading_2("I.5  Manfaat Penelitian")
     add_para(
-        "Manfaat yang diharapkan dari hasil penelitian tugas akhir ini antara lain:",
+        "Manfaat yang dihasilkan dari penelitian tugas akhir ini antara lain:",
         space_after=4
     )
     benefits = [
-        "Bagi Operasional ROV Industri Maritim: Memberikan alternatif sistem pemetaan 3D berbiaya rendah (low-cost) yang dapat langsung diimplementasikan pada ROV kamera monokuler tanpa memerlukan sensor sonar 3D atau laser mahal.",
-        "Bagi Operator Inspeksi Bawah Air: Meningkatkan kesadaran situasional (situational awareness) operator melalui tampilan rekonstruksi 3D objek lingkungan sekitar, sehingga mengurangi risiko tabrakan saat bertugas.",
-        "Bagi Pengembangan Akademik: Menyumbangkan solusi integrasi praktis antara Geometric Visual SLAM dengan Deep Learning yang siap diaplikasikan pada wahana robotika di lingkungan tanpa GPS."
+        "Bagi Industri Maritim & Mitra Inspeksi: Memberikan solusi pemetaan 3D padat alternatif berbiaya sangat rendah (low-cost) yang dapat langsung dioperasikan pada ROV kamera monokuler tanpa biaya pengadaan sonar mahal.",
+        "Bagi Operator Teleoperasi ROV: Memberikan visualisasi 3D lingkungan sekitar dan datum permukaan secara real-time, meningkatkan keselamatan navigasi, serta meminimalkan risiko tabrakan struktur.",
+        "Bagi Keilmuan Informatika Industri & Robotika: Menyajikan studi kasus implementasi fusi Geometric SLAM dan Deep Learning berbasis ROS Noetic yang dapat diaplikasikan pada wahana otonom di lingkungan tanpa GPS."
     ]
     for idx, ben in enumerate(benefits, start=1):
         p = doc.add_paragraph()
@@ -418,11 +451,11 @@ def create_document():
         r_txt.font.name = 'Times New Roman'
 
     # -------------------------------------------------------------------------
-    # I.6 Rencana Pengambilan Data dan Prosedur Pengujian Praktis
+    # I.6 Prosedur Pengujian Praktis Bab IV (Cepat Selesai & Terukur)
     # -------------------------------------------------------------------------
     add_heading_2("I.6  Rencana Pengambilan Data dan Prosedur Pengujian Praktis")
     add_para(
-        "Agar penyusunan tugas akhir dapat diselesaikan dengan cepat dan terukur, prosedur pengambilan data dan pengujian dirancang secara praktis sebagai berikut:",
+        "Untuk memastikan pengujian data berjalan cepat, repeatable, dan dapat dipertanggungjawabkan di hadapan dosen penguji, metodologi dirancang sebagai berikut:",
         space_after=6
     )
 
@@ -432,28 +465,27 @@ def create_document():
     p_step1.paragraph_format.line_spacing = 1.5
     r_s1 = p_step1.add_run("1. Kemudahan Pengambilan Data (Video Dataset): ")
     r_s1.bold = True
-    p_step1.add_run("Pengambilan data dilakukan dengan merekam video pergerakan ROV (format MP4 durasi 1–3 menit) saat bermanuver mengelilingi objek terukur di kolam atau tangki uji. Data video ini menjadi dataset permanen yang dapat diuji berulang kali secara repeatable dan aman tanpa harus selalu menurunkan robot ke air.")
+    p_step1.add_run("Pengambilan data dilakukan dengan merekam manuver ROV (format MP4 durasi 1–3 menit) melintasi dinding dan objek tangki/kolam terukur. Dataset video ini diolah secara berulang di PC laboratorium tanpa memerlukan pengujian basah berulang di lapangan.")
 
     p_step2 = doc.add_paragraph()
     p_step2.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p_step2.paragraph_format.space_after = Pt(4)
     p_step2.paragraph_format.line_spacing = 1.5
-    r_s2 = p_step2.add_run("2. Kemudahan Pengolahan Data (Automated ROS Script): ")
+    r_s2 = p_step2.add_run("2. Kemudahan Pengolahan Data (Automated ROS Pipeline): ")
     r_s2.bold = True
-    p_step2.add_run("Pengolahan data dijalankan secara terotomatisasi melalui script ROS launch. Sistem langsung memproses video, menampilkan visualisasi 3D real-time di RViz, dan secara otomatis mengekspor hasil rekonstruksi ke file .PLY.")
+    p_step2.add_run("Pengolahan data dijalankan secara terintegrasi melalui launcher ROS. Sistem secara otomatis mencatat pose odometri, mengestimasi struktur spasial, melakukan fusi volumetrik, dan mengekspor model 3D padat (.PLY) secara instan.")
 
     p_step3 = doc.add_paragraph()
     p_step3.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p_step3.paragraph_format.space_after = Pt(4)
     p_step3.paragraph_format.line_spacing = 1.5
-    r_s3 = p_step3.add_run("3. Parameter Pengujian untuk Bab IV: ")
+    r_s3 = p_step3.add_run("3. Tiga Metrik Pengujian Kuantitatif Bab IV: ")
     r_s3.bold = True
-    p_step3.add_run("Pengujian Bab IV ditargetkan pada 3 metrik yang jelas dan mudah diukur:\n"
-                  "   a. Kecepatan Komputasi (FPS): Mengukur rata-rata frame rate pemrosesan (mencapai 15–20 FPS real-time).\n"
-                  "   b. Kerapatan Titik Peta (Point Cloud Density): Membandingkan jumlah titik peta sparse ORB-SLAM3 (~3.000 titik) terhadap peta padat hasil fusi (~150.000 titik).\n"
-                  "   c. Kelurusan Trajektori: Menganalisis konsistensi lintasan kamera terhadap jalur manuver aktual.")
+    p_step3.add_run("Pengujian data Bab IV dititikberatkan pada 3 parameter kuantitatif:\n"
+                  "   a. Kecepatan Komputasi (FPS): Menghitung rata-rata frame rate pemrosesan (target stabil pada rentang 15–20 FPS).\n"
+                  "   b. Kerapatan Awan Titik (Point Density): Membandingkan jumlah titik peta sparse ORB-SLAM3 (~3.000 titik) terhadap peta padat hasil fusi (> 150.000 titik).\n"
+                  "   c. Konsistensi Trajektori Lintasan: Menganalisis kelurusan dan keteraturan kurva lintasan 6-DoF terhadap jalur pergerakan aktual.")
 
-    # Break ke halaman Daftar Pustaka
     doc.add_page_break()
 
     # =========================================================================
@@ -498,15 +530,14 @@ def create_document():
         run.font.name = 'Times New Roman'
         run.font.size = Pt(11)
 
-    # Simpan dokumen
-    out_path = r"c:\remote_ROV\Draf_TA_Latar_Belakang_Fadzkal.docx"
-    alt_path = r"c:\remote_ROV\Draf_Proposal_Latar_Belakang_Fadzkal.docx"
+    out_path = r"c:\remote_ROV\Draf_Proposal_Latar_Belakang_Fadzkal.docx"
+    alt_path = r"c:\remote_ROV\Draf_Proposal_Latar_Belakang_Fadzkal_V2.docx"
     try:
         doc.save(out_path)
         print(f"[SUKSES] Dokumen Word berhasil dibuat: {out_path}")
     except PermissionError:
         doc.save(alt_path)
-        print(f"[PERINGATAN] File sedang dibuka di Word. Disimpan ke nama baru: {alt_path}")
+        print(f"[PERINGATAN] File sedang dibuka di Word. Disimpan ke: {alt_path}")
 
 if __name__ == "__main__":
     create_document()
