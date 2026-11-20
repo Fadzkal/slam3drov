@@ -80,24 +80,24 @@
       <remap from="rgb/camera_info"             to="/camera/synced/camera_info"/>
       <remap from="odom"                        to="/rtabmap/odom"/>
 
-      <!-- Pengaturan Pembuatan Peta 3D Padat -->
+      <!-- Pengaturan Pembuatan Peta 3D Padat (Murni 3D Volumetrik, Tanpa Grid 2D) -->
       <param name="RGBD/Enabled"                type="string" value="true"/>
       <param name="Rtabmap/DetectionRate"       type="string" value="2.0"/>
       <param name="RGBD/LinearUpdate"           type="string" value="0.05"/> <!-- Update setiap gerak 5 cm -->
       <param name="RGBD/AngularUpdate"          type="string" value="0.08"/> <!-- Update setiap putar ~4.5 derajat -->
-      <param name="Grid/FromDepth"              type="string" value="true"/>
-      <param name="Grid/Sensor"                 type="string" value="1"/> <!-- 1 = RGB-D Depth -->
-      <param name="Grid/RangeMax"               type="string" value="3.0"/> <!-- Potong background > 3 meter -->
-      <param name="Grid/RangeMin"               type="string" value="0.25"/>
+      <param name="Grid/FromDepth"              type="string" value="false"/> <!-- Matikan proyeksi grid 2D -->
+      <param name="Grid/Sensor"                 type="string" value="0"/>     <!-- 0 = Nonaktifkan 2D Ground Grid -->
+      <param name="Grid/RangeMax"               type="string" value="3.5"/>  <!-- Potong background > 3.5 meter -->
+      <param name="Grid/RangeMin"               type="string" value="0.30"/>
       <param name="Grid/DepthDecimation"        type="int"    value="4"/>
       <param name="Grid/CellSize"               type="string" value="0.02"/> <!-- Resolusi Voxel 2 cm -->
       <param name="Grid/VoxelSize"              type="double" value="0.02"/>
       <param name="cloud_voxel_size"            type="double" value="0.02"/>
       <param name="Grid/NoiseFilteringRadius"   type="string" value="0.05"/> <!-- Filter SOR pembersih noise -->
       <param name="Grid/NoiseFilteringMinNeighbors" type="string" value="5"/>
-      <param name="Grid/RayTracing"             type="string" value="true"/>
+      <param name="Grid/RayTracing"             type="string" value="false"/>
       <param name="Mem/IncrementalMemory"       type="string" value="true"/>
-      <param name="RGBD/CreateOccupancyGrid"    type="string" value="true"/>
+      <param name="RGBD/CreateOccupancyGrid"    type="string" value="false"/> <!-- Hilangkan bidang lantai 2D putih dan abu-abu -->
     </node>
   </group>
 

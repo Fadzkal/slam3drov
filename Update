@@ -1,0 +1,10 @@
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Viewer.cc:321:        cv::Mat im = mpFrameDrawer->DrawFrame(trackedImageScale);
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Viewer.cc:324:            cv::Mat imRight = mpFrameDrawer->DrawRightFrame(trackedImageScale);
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/System.cc:236:        mpViewer->both = mpFrameDrawer->both;
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Tracking.cc:568:        mpFrameDrawer->both = true;
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Tracking.cc:1090:                mpFrameDrawer->both = true;
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Tracking.cc:1910:        //mpFrameDrawer->Update(this);
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Tracking.cc:2201:        mpFrameDrawer->Update(this);
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/System.cc.bak:236:        mpViewer->both = mpFrameDrawer->both;
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Viewer.cc.bak:321:        cv::Mat im = mpFrameDrawer->DrawFrame(trackedImageScale);
+/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/src/Viewer.cc.bak:324:            cv::Mat imRight = mpFrameDrawer->DrawRightFrame(trackedImageScale);

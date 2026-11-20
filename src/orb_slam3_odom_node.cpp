@@ -47,6 +47,7 @@ public:
     OrbSlam3OdomNode(ros::NodeHandle &nh, ros::NodeHandle &pnh)
         : nh_(nh), pnh_(pnh), it_(nh), mbTrackingOk(false), dLastFrameTime_(0.0)
     {
+        t0_slam_ = std::chrono::steady_clock::now();
         // 1. Baca Parameter ROS
         pnh_.param<string>("voc_file", strVocFile_, "/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Vocabulary/ORBvoc.txt");
         pnh_.param<string>("settings_file", strSettingsFile_, "/home/fadzkal_luthfi/slam_ws/webcam_640.yaml");
@@ -114,6 +115,7 @@ public:
         kfMarkerPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/keyframe_markers", 5);
         covisGraphPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/covisibility_graph", 5);
         sparsePointsPub_ = nh_.advertise<sensor_msgs::PointCloud2>("/orb_slam3/sparse_points", 5);
+        trackImgPub_ = it_.advertise("/orb_slam3/tracking_image", 2);
 
         // 5. Mode Operasi: Langsung Buka Kamera atau Subscribe ROS Topic
         if (!strCameraSource_.empty())
@@ -135,8 +137,6 @@ public:
     {
         if (mpSLAM)
         {
-            mpSLAM->Shutdown();
-
             // Format tanggal & jam otomatis (YYYYMMDD_HHMMSS)
             time_t rawtime;
             struct tm * timeinfo;
@@ -146,11 +146,11 @@ public:
             strftime(buffer, sizeof(buffer), "%Y%m%d_%H%M%S", timeinfo);
             std::string strTime(buffer);
 
-            // 1. Simpan Trajectory Lintasan Kamera (TUM format)
-            mpSLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
-            mpSLAM->SaveKeyFrameTrajectoryTUM("/mnt/c/remote_ROV/KeyFrameTrajectory.txt");
-            mpSLAM->SaveKeyFrameTrajectoryTUM("/mnt/c/remote_ROV/export/KeyFrameTrajectory.txt");
-            mpSLAM->SaveKeyFrameTrajectoryTUM(("/mnt/c/remote_ROV/export/KeyFrameTrajectory_" + strTime + ".txt").c_str());
+            // 1. Simpan Trajectory Langsung dari vKeyFramePoses_ (Jaminan TIDAK PERNAH 0 bytes!)
+            SaveTrajectoryTXT("KeyFrameTrajectory.txt");
+            SaveTrajectoryTXT("/mnt/c/remote_ROV/KeyFrameTrajectory.txt");
+            SaveTrajectoryTXT("/mnt/c/remote_ROV/export/KeyFrameTrajectory.txt");
+            SaveTrajectoryTXT(("/mnt/c/remote_ROV/export/KeyFrameTrajectory_" + strTime + ".txt").c_str());
 
             // 2. Simpan Seluruh Awan Titik 3D Berwarna (PLY format)
             SavePointsPLY("KeyFrameMapPoints.ply");
@@ -158,7 +158,15 @@ public:
             SavePointsPLY("/mnt/c/remote_ROV/export/KeyFrameMapPoints.ply");
             SavePointsPLY("/mnt/c/remote_ROV/export/KeyFrameMapPoints_" + strTime + ".ply");
 
-            std::cout << "\n[ORB-SLAM3] Selesai! Data disimpan ke KeyFrameMapPoints.ply dan arsip: export/KeyFrameMapPoints_" << strTime << ".ply\n" << std::endl;
+            // 3. Matikan SLAM engine
+            mpSLAM->Shutdown();
+
+            // 4. Otomatis Ekspor Trajectory 3D PLY (Polyline & Frustums Kamera)
+            int ret = system("python3 /mnt/c/remote_ROV/export_trajectory_ply.py /mnt/c/remote_ROV/KeyFrameTrajectory.txt /mnt/c/remote_ROV/KeyFrameMapPoints.ply > /dev/null 2>&1 &");
+            (void)ret;
+
+            std::cout << "\n[ORB-SLAM3] Selesai! Data disimpan ke KeyFrameMapPoints.ply, KeyFrameTrajectory.ply (" 
+                      << vKeyFramePoses_.size() << " poses), dan arsip: export/KeyFrameMapPoints_" << strTime << ".ply\n" << std::endl;
         }
     }
 
@@ -187,14 +195,13 @@ private:
             cv::resize(frameRaw, frame, cv::Size(w, h));
         }
 
-        double tframe = stamp.toSec();
+        double tframe = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t0_slam_).count();
         ros::Time frameStamp = stamp;
 
         // Jaminan Waktu Monotonik: Menghilangkan error 'timestamp older' & jump back in time di WSL2
         if (dLastFrameTime_ > 0.0 && tframe <= dLastFrameTime_)
         {
             tframe = dLastFrameTime_ + 0.001;
-            frameStamp = ros::Time(tframe);
         }
         dLastFrameTime_ = tframe;
 
@@ -220,6 +227,71 @@ private:
             mbTrackingOk = false;
         }
         statusPub_.publish(statusMsg);
+
+        // 1b. Publikasikan Visual Tracking (Green Feature Boxes & Status HUD) ke ROS /orb_slam3/tracking_image
+        std::vector<cv::KeyPoint> vKeys = mpSLAM->GetTrackedKeyPointsUn();
+        std::vector<ORB_SLAM3::MapPoint*> vMPs = mpSLAM->GetTrackedMapPoints();
+
+        cv::Mat trackFrame = frame.clone();
+        int numMatches = 0;
+        for (size_t i = 0; i < vKeys.size(); ++i)
+        {
+            const cv::KeyPoint &kp = vKeys[i];
+            bool bMapped = false;
+            if (i < vMPs.size() && vMPs[i] != nullptr)
+            {
+                try {
+                    bMapped = !vMPs[i]->isBad();
+                } catch (...) {
+                    bMapped = false;
+                }
+            }
+
+            int kpx = static_cast<int>(kp.pt.x);
+            int kpy = static_cast<int>(kp.pt.y);
+            if (kpx >= 4 && kpx < trackFrame.cols - 4 && kpy >= 4 && kpy < trackFrame.rows - 4)
+            {
+                if (bMapped)
+                {
+                    numMatches++;
+                    // Titik hijau terang dan kotak untuk MapPoint aktif
+                    cv::rectangle(trackFrame, cv::Point(kpx - 3, kpy - 3), cv::Point(kpx + 3, kpy + 3), cv::Scalar(0, 255, 0), 1);
+                    cv::circle(trackFrame, cv::Point(kpx, kpy), 1, cv::Scalar(0, 255, 0), -1);
+                }
+                else
+                {
+                    // Kotak kecil kuning-cyan untuk kandidat fitur ORB
+                    cv::rectangle(trackFrame, cv::Point(kpx - 2, kpy - 2), cv::Point(kpx + 2, kpy + 2), cv::Scalar(0, 230, 255), 1);
+                }
+            }
+        }
+
+        // HUD Banner teks
+        std::string banner;
+        cv::Scalar bannerColor;
+        if (mbTrackingOk)
+        {
+            banner = "SLAM MODE (OK) | KFs: " + std::to_string(vKeyFramePoses_.size()) + " | MPs: " + std::to_string(mapStoredPoints_.size()) + " | Matches: " + std::to_string(numMatches);
+            bannerColor = cv::Scalar(0, 255, 0);
+        }
+        else if (trackingState == 1)
+        {
+            banner = "TRYING TO INITIALIZE (ORB Features: " + std::to_string(vKeys.size()) + ")";
+            bannerColor = cv::Scalar(0, 230, 255);
+        }
+        else
+        {
+            banner = "TRACKING LOST (Relocalizing...)";
+            bannerColor = cv::Scalar(0, 0, 255);
+        }
+
+        cv::putText(trackFrame, banner, cv::Point(12, 25), cv::FONT_HERSHEY_SIMPLEX, 0.52, cv::Scalar(0, 0, 0), 3);
+        cv::putText(trackFrame, banner, cv::Point(12, 25), cv::FONT_HERSHEY_SIMPLEX, 0.52, bannerColor, 1);
+
+        sensor_msgs::ImagePtr trackMsg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", trackFrame).toImageMsg();
+        trackMsg->header.stamp = frameStamp;
+        trackMsg->header.frame_id = strChildFrame_;
+        trackImgPub_.publish(trackMsg);
 
         // 2. Jika pelacakan berhasil, publikasikan Odometri presisi ke RTAB-Map
         if (mbTrackingOk && !Tcw.matrix().isZero())
@@ -293,6 +365,42 @@ private:
 
             // Visualisasi Elemen ORB-SLAM3 di RViz: Kamera Merah, KeyFrame Biru, Graf Hijau, Titik Fitur
             PublishOrbVisuals(frameStamp, t_odom, R_odom);
+        }
+        else
+        {
+            // Jika belum terinisialisasi atau lost sesaat, siarkan transform agar TF tree tetap terhubung
+            // dan RTAB-Map tidak crash / drop frame dengan warning 'unconnected trees'
+            if (bPublishTf_)
+            {
+                geometry_msgs::TransformStamped tfMsg;
+                tfMsg.header.stamp = frameStamp;
+                tfMsg.header.frame_id = strOdomFrame_;
+                tfMsg.child_frame_id = strChildFrame_;
+
+                if (!vKeyFramePoses_.empty())
+                {
+                    tfMsg.transform.translation.x = vKeyFramePoses_.back().t.x();
+                    tfMsg.transform.translation.y = vKeyFramePoses_.back().t.y();
+                    tfMsg.transform.translation.z = vKeyFramePoses_.back().t.z();
+                    Eigen::Quaternionf q(vKeyFramePoses_.back().R);
+                    tfMsg.transform.rotation.x = q.x();
+                    tfMsg.transform.rotation.y = q.y();
+                    tfMsg.transform.rotation.z = q.z();
+                    tfMsg.transform.rotation.w = q.w();
+                }
+                else
+                {
+                    tfMsg.transform.translation.x = 0.0;
+                    tfMsg.transform.translation.y = 0.0;
+                    tfMsg.transform.translation.z = 0.0;
+                    tfMsg.transform.rotation.x = 0.0;
+                    tfMsg.transform.rotation.y = 0.0;
+                    tfMsg.transform.rotation.z = 0.0;
+                    tfMsg.transform.rotation.w = 1.0;
+                }
+
+                tfBroadcaster_.sendTransform(tfMsg);
+            }
         }
     }
 
@@ -391,7 +499,7 @@ private:
         {
             last_kf_t = t_odom;
             last_kf_R = R_odom;
-            vKeyFramePoses_.push_back(std::make_pair(t_odom, R_odom));
+            vKeyFramePoses_.push_back({stamp.toSec(), t_odom, R_odom});
 
             // Perbarui KeyFrame Frustums (BLUE - Identik dengan Pangolin ORB-SLAM3)
             visualization_msgs::Marker kfMarker;
@@ -423,19 +531,19 @@ private:
 
             for (size_t i = 0; i < vKeyFramePoses_.size(); i++)
             {
-                AddCameraFrustumLines(kfMarker.points, vKeyFramePoses_[i].first, vKeyFramePoses_[i].second, 0.05f);
+                AddCameraFrustumLines(kfMarker.points, vKeyFramePoses_[i].t, vKeyFramePoses_[i].R, 0.05f);
 
                 // Hubungkan garis graf ke keyframe sebelumnya
                 if (i > 0)
                 {
                     geometry_msgs::Point p1, p2;
-                    p1.x = vKeyFramePoses_[i].first.x();
-                    p1.y = vKeyFramePoses_[i].first.y();
-                    p1.z = vKeyFramePoses_[i].first.z();
+                    p1.x = vKeyFramePoses_[i].t.x();
+                    p1.y = vKeyFramePoses_[i].t.y();
+                    p1.z = vKeyFramePoses_[i].t.z();
 
-                    p2.x = vKeyFramePoses_[i-1].first.x();
-                    p2.y = vKeyFramePoses_[i-1].first.y();
-                    p2.z = vKeyFramePoses_[i-1].first.z();
+                    p2.x = vKeyFramePoses_[i-1].t.x();
+                    p2.y = vKeyFramePoses_[i-1].t.y();
+                    p2.z = vKeyFramePoses_[i-1].t.z();
 
                     covisMarker.points.push_back(p1);
                     covisMarker.points.push_back(p2);
@@ -455,15 +563,23 @@ private:
         for (size_t i = 0; i < vpTrackedMPs.size(); ++i)
         {
             ORB_SLAM3::MapPoint* pMP = vpTrackedMPs[i];
-            if (!pMP || pMP->isBad()) continue;
+            if (!pMP) continue;
+            try {
+                if (pMP->isBad()) continue;
 
-            Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
-            uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
-            uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
-            uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
-            if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
+                Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
+                if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z()))
+                    continue;
 
-            mapStoredPoints_[pMP->mnId] = {pos.x(), pos.y(), pos.z(), r, g, b};
+                uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
+                uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
+                uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
+                if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
+
+                mapStoredPoints_[pMP->mnId] = {pos.x(), pos.y(), pos.z(), r, g, b};
+            } catch (...) {
+                continue;
+            }
         }
 
         // Publikasikan seluruh titik yang tersimpan ke RViz (Points Tersimpan Permanen)
@@ -537,8 +653,32 @@ private:
         {
             if (!cap.read(frame) || frame.empty())
             {
-                ROS_WARN_THROTTLE(5, "[WARN] Frame kosong atau video selesai.");
-                break;
+                // Jika video selesai, reset ke frame 0 agar pengujian loop tanpa mati
+                cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                if (!cap.read(frame) || frame.empty())
+                {
+                    ROS_WARN_THROTTLE(5, "[WARN] Frame kosong atau video selesai.");
+                    break;
+                }
+            }
+
+            // Normalisasi resolusi ke 640x480 dengan mempertahankan rasio aspek 4:3 (Center-Crop jika sumber 16:9)
+            // Hal ini mutlak krusial agar kalibrasi kamera (fx=fy=520) tidak terdistorsi gepeng/oval
+            if (frame.cols != 640 || frame.rows != 480)
+            {
+                if (frame.cols == 1920 && frame.rows == 1080)
+                {
+                    // Center-crop 1440x1080 (rasio murni 4:3 persis di tengah kubah kamera)
+                    int target_w = (frame.rows * 4) / 3; // 1440
+                    int x0 = (frame.cols - target_w) / 2; // 240
+                    cv::Rect cropRoi(x0, 0, target_w, frame.rows);
+                    cv::Mat cropped = frame(cropRoi);
+                    cv::resize(cropped, frame, cv::Size(640, 480));
+                }
+                else
+                {
+                    cv::resize(frame, frame, cv::Size(640, 480));
+                }
             }
 
             ros::Time now = ros::Time::now();
@@ -598,8 +738,42 @@ private:
     ros::Publisher kfMarkerPub_;
     ros::Publisher covisGraphPub_;
     ros::Publisher sparsePointsPub_;
-    std::vector<std::pair<Eigen::Vector3f, Eigen::Matrix3f>> vKeyFramePoses_;
+    image_transport::Publisher trackImgPub_;
+    struct StoredKeyFrame {
+        double stamp;
+        Eigen::Vector3f t;
+        Eigen::Matrix3f R;
+    };
+    std::vector<StoredKeyFrame> vKeyFramePoses_;
     tf2_ros::TransformBroadcaster tfBroadcaster_;
+
+    void SaveTrajectoryTXT(const std::string &filename)
+    {
+        if (vKeyFramePoses_.empty()) return;
+        std::ofstream f(filename.c_str());
+        if (!f.is_open()) return;
+        f << std::fixed;
+
+        Eigen::Matrix3f R_align;
+        R_align <<  0.0f,  0.0f,  1.0f,
+                   -1.0f,  0.0f,  0.0f,
+                    0.0f, -1.0f,  0.0f;
+        Eigen::Matrix3f R_align_inv = R_align.transpose();
+
+        for (size_t i = 0; i < vKeyFramePoses_.size(); ++i)
+        {
+            const StoredKeyFrame &kf = vKeyFramePoses_[i];
+            Eigen::Vector3f t_tum = R_align_inv * kf.t;
+            Eigen::Matrix3f R_tum = R_align_inv * kf.R;
+            Eigen::Quaternionf q_tum(R_tum);
+
+            f << std::setprecision(6) << kf.stamp << " "
+              << std::setprecision(7) << t_tum.x() << " " << t_tum.y() << " " << t_tum.z() << " "
+              << q_tum.x() << " " << q_tum.y() << " " << q_tum.z() << " " << q_tum.w() << "\n";
+        }
+        f.close();
+        ROS_INFO("[ORB-SLAM3] Sukses menyimpan %zu pose lintasan ke: %s", vKeyFramePoses_.size(), filename.c_str());
+    }
 
     float fx_, fy_, cx_, cy_;
 
@@ -637,6 +811,7 @@ private:
     }
 
     shared_ptr<ORB_SLAM3::System> mpSLAM;
+    std::chrono::steady_clock::time_point t0_slam_;
     float imageScale_;
     bool mbTrackingOk;
     double dLastFrameTime_;

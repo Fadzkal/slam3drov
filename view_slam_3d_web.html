@@ -410,6 +410,7 @@
                 <span class="badge" id="pointCountBadge">0 Titik 3D</span>
                 <span class="badge badge-green" id="modelTypeBadge">POINT CLOUD</span>
                 <span class="badge badge-blue" id="fileBadge">Belum ada file</span>
+                <span class="badge" id="trajBadge" style="display:none; background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe;">0 KeyFrames</span>
             </div>
 
             <!-- 1. Pilihan File / Dataset -->
@@ -417,10 +418,11 @@
                 Sumber File Model 3D
             </div>
             <div class="action-row">
-                <input type="file" id="fileInput" accept=".ply,.pcd,.obj">
-                <button class="btn btn-primary" id="btnOpenFile" title="Buka file hasil scan Anda sendiri">Buka File (.PLY / .OBJ)</button>
+                <input type="file" id="fileInput" accept=".ply,.pcd,.obj,.txt" multiple>
+                <button class="btn btn-primary" id="btnOpenFile" title="Buka file hasil scan atau trajectory (.PLY / .TXT)">Buka File (.PLY / .TXT)</button>
                 <button class="btn" id="btnLoadDense" title="Peta Rapat Hasil Inferensi AI Depth">AI Dense</button>
                 <button class="btn" id="btnLoadSparse" title="Fitur Landmark Pelacakan ORB-SLAM3">ORB Sparse</button>
+                <button class="btn" id="btnLoadTraj" title="Muat Peta & Lintasan Kamera ORB-SLAM3">Peta + Lintasan</button>
                 <button class="btn" id="btnLoadMesh" title="Hasil Rekonstruksi Poligon RTAB-Map">RTAB-Map Mesh</button>
             </div>
         </div>
@@ -454,6 +456,15 @@
                 <input type="range" class="slider" id="sliderPointSize" min="0.5" max="10.0" step="0.1" value="2.5">
             </div>
 
+            <!-- Trajectory Frustum Size Slider -->
+            <div class="control-group" id="groupTrajSize">
+                <div class="control-label">
+                    <span>Ukuran Piramida Kamera</span>
+                    <span class="control-value" id="valTrajSize">0.10 m</span>
+                </div>
+                <input type="range" class="slider" id="sliderTrajSize" min="0.02" max="0.35" step="0.01" value="0.10">
+            </div>
+
             <!-- Color Mode -->
             <div class="control-group">
                 <div class="control-label">
@@ -472,6 +483,12 @@
             <button class="btn active" id="btnToggleFloor" style="flex: 1; justify-content: center;">Lantai Datum</button>
             <button class="btn active" id="btnToggleGrid" style="flex: 1; justify-content: center;">Grid 1m</button>
             <button class="btn" id="btnToggleBBox" style="flex: 1; justify-content: center;">Bounding Box</button>
+        </div>
+
+        <!-- Trajectory & Camera Frustum Toggles -->
+        <div class="control-group" style="display: flex; gap: 6px;">
+            <button class="btn active" id="btnToggleTraj" style="flex: 1; justify-content: center;" title="Tampilkan garis lintasan 6-DoF ROV">Lintasan ROV</button>
+            <button class="btn active" id="btnToggleFrustums" style="flex: 1; justify-content: center;" title="Tampilkan piramida sudut pandang kamera (KeyFrame Frustums)">Piramida Kamera</button>
         </div>
 
         <!-- Measurement Tool -->
@@ -505,6 +522,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- Telemetry Lintasan ROV Card -->
+        <div class="dim-card" id="trajCard" style="display:none; margin-top: 8px; border-color: #ddd6fe; background: #faf5ff;">
+            <div style="font-size: 10px; color: #7c3aed; font-weight: 700; text-transform: uppercase;">
+                Telemetri Pelacakan 6-DoF ROV
+            </div>
+            <div class="dim-grid">
+                <div class="dim-cell">
+                    <span>KeyFrames</span>
+                    <b id="trajCount" style="color: #7c3aed;">0</b>
+                </div>
+                <div class="dim-cell">
+                    <span>Panjang Lintasan</span>
+                    <b id="trajDist" style="color: #0284c7;">0.00 m</b>
+                </div>
+                <div class="dim-cell">
+                    <span>Status 6-DoF</span>
+                    <b id="trajStatus" style="color: #166534;">OK</b>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Camera Navigation Bar -->
@@ -513,6 +551,7 @@
         <button class="btn" id="btnViewTop">Tampak Atas</button>
         <button class="btn" id="btnViewSide">Tampak Samping</button>
         <button class="btn" id="btnViewFront">Sudut ROV</button>
+        <button class="btn" id="btnFocusTraj" title="Fokuskan kamera langsung ke lintasan ROV">Fokus Lintasan</button>
         <button class="btn" id="btnResetCam">Reset Kamera</button>
         <button class="btn" id="btnScreenshot">Tangkapan Layar</button>
     </div>
@@ -566,16 +605,11 @@
         gridHelper.position.z = -0.01;
         groundGroup.add(gridHelper);
 
-        // Soft datum ground plane
-        const groundPlaneGeo = new THREE.PlaneGeometry(30, 30);
-        const groundPlaneMat = new THREE.MeshBasicMaterial({
-            color: 0x64748b,
-            transparent: true,
-            opacity: 0.06,
-            depthWrite: false
-        });
-        const groundPlane = new THREE.Mesh(groundPlaneGeo, groundPlaneMat);
-        groundGroup.add(groundPlane);
+        // Soft datum ground plane (dinonaktifkan sesuai permintaan: murni 3D tanpa bidang abu-abu)
+        // const groundPlaneGeo = new THREE.PlaneGeometry(30, 30);
+        // const groundPlaneMat = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.06, depthWrite: false });
+        // const groundPlane = new THREE.Mesh(groundPlaneGeo, groundPlaneMat);
+        // groundGroup.add(groundPlane);
 
         // ROV Origin Marker (Dark Slate Body + REP 103 Axes: X-Red Forward, Y-Green Left, Z-Blue Up)
         const rovBodyGeo = new THREE.BoxGeometry(0.35, 0.25, 0.2);
@@ -589,6 +623,12 @@
 
         // Bounding Box Helper
         let bboxHelper = null;
+
+        // --- Trajectory & Camera Poses State (ORB-SLAM3 6-DoF) ---
+        const trajectoryGroup = new THREE.Group();
+        const frustumGroup = new THREE.Group();
+        scene.add(trajectoryGroup);
+        scene.add(frustumGroup);
 
         // --- 3. Point Cloud & Mesh Management State ---
         let loadedRawGeometry = null;
@@ -617,6 +657,202 @@
 
         function hideLoader() {
             document.getElementById('loader').style.display = 'none';
+        }
+
+        // --- 3.0 Trajectory & KeyFrame Frustum Handlers ---
+        function quatToMatrix3(qx, qy, qz, qw) {
+            const norm = Math.hypot(qx, qy, qz, qw) || 1.0;
+            qx /= norm; qy /= norm; qz /= norm; qw /= norm;
+            return [
+                1.0 - 2.0 * (qy*qy + qz*qz), 2.0 * (qx*qy - qz*qw),       2.0 * (qx*qz + qy*qw),
+                2.0 * (qx*qy + qz*qw),       1.0 - 2.0 * (qx*qx + qz*qz), 2.0 * (qy*qz - qx*qw),
+                2.0 * (qx*qz - qy*qw),       2.0 * (qy*qz + qx*qw),       1.0 - 2.0 * (qx*qx + qy*qy)
+            ];
+        }
+
+        function multRAlign(R) {
+            // R_align = [ 0 0 1; -1 0 0; 0 -1 0 ]
+            return [
+                 R[6],  R[7],  R[8],
+                -R[0], -R[1], -R[2],
+                -R[3], -R[4], -R[5]
+            ];
+        }
+
+        function applyRot(R_odom, v) {
+            return new THREE.Vector3(
+                R_odom[0] * v.x + R_odom[1] * v.y + R_odom[2] * v.z,
+                R_odom[3] * v.x + R_odom[4] * v.y + R_odom[5] * v.z,
+                R_odom[6] * v.x + R_odom[7] * v.y + R_odom[8] * v.z
+            );
+        }
+
+        function clearTrajectory() {
+            while (trajectoryGroup.children.length > 0) {
+                const obj = trajectoryGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+                trajectoryGroup.remove(obj);
+            }
+            while (frustumGroup.children.length > 0) {
+                const obj = frustumGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+                frustumGroup.remove(obj);
+            }
+        }
+
+        let currentTrajectoryPoses = [];
+
+        function renderTrajectoryObjects(frustumScale = 0.10) {
+            clearTrajectory();
+            if (!currentTrajectoryPoses || currentTrajectoryPoses.length === 0) return;
+
+            // 1. Gambar Garis & 3D Tube Padat (Solid Cyan Tube)
+            const linePoints = currentTrajectoryPoses.map(p => p.pos);
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0x06b6d4,
+                linewidth: 2
+            });
+            const trajLine = new THREE.Line(lineGeo, lineMat);
+            trajectoryGroup.add(trajLine);
+
+            if (linePoints.length >= 2) {
+                try {
+                    const curve = new THREE.CatmullRomCurve3(linePoints);
+                    const tubeGeo = new THREE.TubeGeometry(curve, Math.min(linePoints.length * 4, 150), 0.008, 8, false);
+                    const tubeMat = new THREE.MeshStandardMaterial({
+                        color: 0x06b6d4,
+                        roughness: 0.25,
+                        metalness: 0.1,
+                        emissive: 0x0891b2,
+                        emissiveIntensity: 0.4
+                    });
+                    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+                    trajectoryGroup.add(tubeMesh);
+                } catch(e) {}
+            }
+
+            // 2. Marker Titik Awal (Green Sphere) dan Akhir (Red Sphere)
+            const sphereGeo = new THREE.SphereGeometry(Math.max(0.02, frustumScale * 0.25), 16, 16);
+            const startMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            const startMesh = new THREE.Mesh(sphereGeo, startMat);
+            startMesh.position.copy(currentTrajectoryPoses[0].pos);
+            trajectoryGroup.add(startMesh);
+
+            const endMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const endMesh = new THREE.Mesh(sphereGeo, endMat);
+            endMesh.position.copy(currentTrajectoryPoses[currentTrajectoryPoses.length - 1].pos);
+            trajectoryGroup.add(endMesh);
+
+            // 3. Piramida Kamera Frustums (Blue wireframes seperti Pangolin & RViz)
+            const frustumPoints = [];
+            const activeFrustumPoints = [];
+
+            currentTrajectoryPoses.forEach((p, idx) => {
+                const isLast = (idx === currentTrajectoryPoses.length - 1);
+                const s = isLast ? frustumScale * 1.35 : frustumScale;
+                const w = s;
+                const h = w * 0.75;
+                const z = w * 0.6;
+
+                // 5 verteks lokal kamera optik
+                const vLocal = [
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(-w, -h, z),
+                    new THREE.Vector3( w, -h, z),
+                    new THREE.Vector3( w,  h, z),
+                    new THREE.Vector3(-w,  h, z)
+                ];
+
+                const vGlobal = vLocal.map(vl => {
+                    const rotV = applyRot(p.R_odom, vl);
+                    return p.pos.clone().add(rotV);
+                });
+
+                const edges = [
+                    [0, 1], [0, 2], [0, 3], [0, 4],
+                    [1, 2], [2, 3], [3, 4], [4, 1]
+                ];
+
+                const targetArr = isLast ? activeFrustumPoints : frustumPoints;
+                for (let edge of edges) {
+                    targetArr.push(vGlobal[edge[0]]);
+                    targetArr.push(vGlobal[edge[1]]);
+                }
+            });
+
+            if (frustumPoints.length > 0) {
+                const kfFrustumGeo = new THREE.BufferGeometry().setFromPoints(frustumPoints);
+                const kfFrustumMat = new THREE.LineBasicMaterial({ color: 0x2563eb, linewidth: 2, transparent: true, opacity: 0.9 });
+                const kfFrustums = new THREE.LineSegments(kfFrustumGeo, kfFrustumMat);
+                frustumGroup.add(kfFrustums);
+            }
+
+            if (activeFrustumPoints.length > 0) {
+                const actFrustumGeo = new THREE.BufferGeometry().setFromPoints(activeFrustumPoints);
+                const actFrustumMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 3 });
+                const actFrustum = new THREE.LineSegments(actFrustumGeo, actFrustumMat);
+                frustumGroup.add(actFrustum);
+            }
+        }
+
+        function parseAndDisplayTrajectory(text, sourceLabel = 'KeyFrameTrajectory.txt') {
+            const lines = text.split('\n');
+            const poses = [];
+            let totalDist = 0.0;
+            let lastPos = null;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#')) continue;
+                const parts = line.split(/\s+/).map(Number);
+                if (parts.length >= 8) {
+                    const [stamp, tx, ty, tz, qx, qy, qz, qw] = parts;
+                    // R_align * [tx, ty, tz]^T: X_odom = tz, Y_odom = -tx, Z_odom = -ty
+                    const pos = new THREE.Vector3(tz, -tx, -ty);
+                    const R_tum = quatToMatrix3(qx, qy, qz, qw);
+                    const R_odom = multRAlign(R_tum);
+
+                    if (lastPos) {
+                        totalDist += lastPos.distanceTo(pos);
+                    }
+                    lastPos = pos.clone();
+
+                    poses.push({ stamp, pos, R_odom });
+                }
+            }
+
+            if (poses.length === 0) return;
+            currentTrajectoryPoses = poses;
+
+            const curScale = parseFloat(document.getElementById('sliderTrajSize').value) || 0.10;
+            renderTrajectoryObjects(curScale);
+
+            // Update UI Telemetry HUD
+            document.getElementById('trajCount').textContent = poses.length;
+            document.getElementById('trajDist').textContent = totalDist.toFixed(2) + ' m';
+            document.getElementById('trajStatus').textContent = '6-DoF OK';
+            const trajBadge = document.getElementById('trajBadge');
+            trajBadge.textContent = `${poses.length} KeyFrames (${totalDist.toFixed(2)} m)`;
+            trajBadge.style.display = 'inline-flex';
+            document.getElementById('trajCard').style.display = 'block';
+
+            showToast(`Lintasan ROV dimuat (${poses.length} KeyFrames, ${totalDist.toFixed(2)} m)`);
+        }
+
+        function fetchTrajectory(url = 'KeyFrameTrajectory.txt', silent = false) {
+            const cacheBust = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+            fetch(cacheBust)
+                .then(res => {
+                    if (!res.ok) throw new Error('File tidak ditemukan');
+                    return res.text();
+                })
+                .then(text => parseAndDisplayTrajectory(text, url))
+                .catch(err => {
+                    if (!silent) showToast(`Tidak ada file trajectory (${url})`);
+                });
         }
 
         // --- 3.1 Algoritma Rekonstruksi Permukaan 2.5D Cepat (Client-Side Surface Triangulation) ---
@@ -773,9 +1009,9 @@
                 valBadge.textContent = 'Awan Titik (Points)';
                 ptGroup.style.display = 'block';
 
-                const pointSize = parseFloat(document.getElementById('sliderPointSize').value);
+                const pointSize = parseFloat(document.getElementById('sliderPointSize').value) || 1.5;
                 const material = new THREE.PointsMaterial({
-                    size: pointSize * 0.035,
+                    size: pointSize * 0.007,
                     vertexColors: true,
                     sizeAttenuation: true
                 });
@@ -975,6 +1211,12 @@
             setTimeout(() => {
                 try {
                     const ext = filename.split('.').pop().toLowerCase();
+                    if (ext === 'txt') {
+                        const text = new TextDecoder().decode(buffer);
+                        parseAndDisplayTrajectory(text, filename);
+                        hideLoader();
+                        return;
+                    }
                     if (ext === 'ply') {
                         const geom = plyLoader.parse(buffer);
                         setPointCloudGeometry(geom, filename);
@@ -1020,7 +1262,11 @@
         const fileInput = document.getElementById('fileInput');
         document.getElementById('btnOpenFile').addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) loadFileFromInput(e.target.files[0]);
+            if (e.target.files.length > 0) {
+                for (let i = 0; i < e.target.files.length; i++) {
+                    loadFileFromInput(e.target.files[i]);
+                }
+            }
         });
 
         // Drag & Drop
@@ -1037,16 +1283,23 @@
             e.preventDefault();
             document.getElementById('drop-zone').classList.remove('active');
             if (e.dataTransfer.files.length > 0) {
-                loadFileFromInput(e.dataTransfer.files[0]);
+                for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                    loadFileFromInput(e.dataTransfer.files[i]);
+                }
             }
         });
 
         // Button Quick Loaders
-        function loadNamedPly(path, label) {
+        function loadNamedPly(path, label, autoTraj = true) {
             showLoader(`Memuat ${label}...`);
             const cacheBustPath = path + (path.includes('?') ? '&' : '?') + 'v=' + Date.now();
             plyLoader.load(cacheBustPath,
-                (geom) => setPointCloudGeometry(geom, label),
+                (geom) => {
+                    setPointCloudGeometry(geom, label);
+                    if (autoTraj) {
+                        fetchTrajectory('KeyFrameTrajectory.txt', true);
+                    }
+                },
                 undefined,
                 (err) => {
                     hideLoader();
@@ -1069,6 +1322,11 @@
             loadNamedPly('KeyFrameMapPoints.ply', 'Fitur ORB-SLAM (KeyFrameMapPoints.ply)');
         });
 
+        document.getElementById('btnLoadTraj').addEventListener('click', () => {
+            loadNamedPly('KeyFrameMapPoints.ply', 'Peta + Lintasan ORB-SLAM3');
+            fetchTrajectory('KeyFrameTrajectory.txt', false);
+        });
+
         document.getElementById('btnLoadMesh').addEventListener('click', () => {
             loadNamedPly('subsea_3d_mesh.ply', 'Mesh RTAB-Map (subsea_3d_mesh.ply)');
         });
@@ -1079,7 +1337,7 @@
             const val = parseFloat(e.target.value);
             document.getElementById('valPointSize').textContent = val.toFixed(1) + ' px';
             if (currentPointCloud && currentPointCloud.isPoints) {
-                currentPointCloud.material.size = val * 0.035;
+                currentPointCloud.material.size = val * 0.007;
             }
         });
 
@@ -1088,7 +1346,7 @@
             updateColorMode(e.target.value);
         });
 
-        // Floor / Grid / BBox Toggles
+        // Floor / Grid / BBox / Trajectory Toggles
         document.getElementById('btnToggleFloor').addEventListener('click', function() {
             this.classList.toggle('active');
             groundPlane.visible = this.classList.contains('active');
@@ -1103,6 +1361,47 @@
             this.classList.toggle('active');
             if (bboxHelper) bboxHelper.visible = this.classList.contains('active');
         });
+
+        document.getElementById('btnToggleTraj').addEventListener('click', function() {
+            this.classList.toggle('active');
+            trajectoryGroup.visible = this.classList.contains('active');
+        });
+
+        document.getElementById('btnToggleFrustums').addEventListener('click', function() {
+            this.classList.toggle('active');
+            frustumGroup.visible = this.classList.contains('active');
+        });
+
+        // Trajectory Frustum Size Slider
+        const sliderTrajSize = document.getElementById('sliderTrajSize');
+        if (sliderTrajSize) {
+            sliderTrajSize.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                document.getElementById('valTrajSize').textContent = val.toFixed(2) + ' m';
+                if (currentTrajectoryPoses && currentTrajectoryPoses.length > 0) {
+                    renderTrajectoryObjects(val);
+                }
+            });
+        }
+
+        // Focus Trajectory Button
+        const btnFocusTraj = document.getElementById('btnFocusTraj');
+        if (btnFocusTraj) {
+            btnFocusTraj.addEventListener('click', () => {
+                if (currentTrajectoryPoses && currentTrajectoryPoses.length > 0) {
+                    const center = new THREE.Vector3();
+                    currentTrajectoryPoses.forEach(p => center.add(p.pos));
+                    center.divideScalar(currentTrajectoryPoses.length);
+
+                    controls.target.copy(center);
+                    camera.position.set(center.x + 0.6, center.y - 1.5, center.z + 1.0);
+                    controls.update();
+                    showToast('Kamera difokuskan ke terowongan lintasan ROV');
+                } else {
+                    showToast('Data lintasan belum dimuat');
+                }
+            });
+        }
 
         // Camera Views
         document.getElementById('btnViewOrbit').addEventListener('click', () => {
@@ -1126,9 +1425,9 @@
             if (currentPointCloud) {
                 const center = currentPointCloud.geometry.boundingBox.getCenter(new THREE.Vector3());
                 controls.target.copy(center);
-                camera.position.set(center.x + 6, center.y, center.z);
+                camera.position.set(center.x, center.y - 5, center.z + 0.3);
             } else {
-                camera.position.set(6, 0, 1);
+                camera.position.set(0, -5, 0.5);
             }
             controls.update();
         });
@@ -1137,9 +1436,9 @@
             if (currentPointCloud) {
                 const center = currentPointCloud.geometry.boundingBox.getCenter(new THREE.Vector3());
                 controls.target.copy(center);
-                camera.position.set(center.x, center.y - 6, center.z);
+                camera.position.set(center.x - 4, center.y, center.z + 0.2);
             } else {
-                camera.position.set(0, -6, 1);
+                camera.position.set(-4, 0, 0.5);
             }
             controls.update();
         });

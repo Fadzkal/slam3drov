@@ -1,4 +1,24 @@
 #!/usr/bin/env python3
+"""
+monocular_depth_node.py
+=============================================================================
+Node Inferensi AI Dense Monocular Depth (MiDaS DPT ONNX) dengan
+Scale Anchoring Geometris ORB-SLAM3 dan Koreksi Anti-Kubah (Planar Cosine).
+
+Fitur Utama:
+1. Inferensi MiDaS ONNX FP32 berkecepatan tinggi (~12.5 FPS).
+2. Koreksi Anti-Kubah/Anti-Barrel (Spherical-to-Planar Ray Cosine):
+   Mengeliminasi kelengkungan kubah/parabola pada dinding dan pintu,
+   sehingga permukaan datar tetap rigid dan lurus.
+3. Scale Anchoring Geometris ORB-SLAM3:
+   Mengunci skala metrik depth secara real-time terhadap MapPoints 3D
+   yang ditriangulasi oleh Bundle Adjustment ORB-SLAM3.
+4. Temporal Smoothing (EMA):
+   Menstabilkan dynamic range dan menghilangkan jitter kedalaman antar frame.
+5. Sinkronisasi multi-topik ROS untuk RTAB-Map SLAM dan RViz.
+=============================================================================
+"""
+
 import os
 import struct
 import numpy as np
@@ -6,9 +26,22 @@ import cv2
 import onnxruntime as ort
 import rospy
 from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo, Range
+from nav_msgs.msg import Odometry
 from std_msgs.msg import Float64
 from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
+
+def quat_to_rot_matrix(qx, qy, qz, qw):
+    """Konversi quaternion ke matriks rotasi 3x3 (numpy)."""
+    norm = np.sqrt(qx*qx + qy*qy + qz*qz + qw*qw)
+    if norm < 1e-6:
+        return np.eye(3, dtype=np.float32)
+    qx, qy, qz, qw = qx/norm, qy/norm, qz/norm, qw/norm
+    return np.array([
+        [1.0 - 2.0*(qy*qy + qz*qz), 2.0*(qx*qy - qz*qw),       2.0*(qx*qz + qy*qw)],
+        [2.0*(qx*qy + qz*qw),       1.0 - 2.0*(qx*qx + qz*qz), 2.0*(qy*qz - qx*qw)],
+        [2.0*(qx*qz - qy*qw),       2.0*(qy*qz + qx*qw),       1.0 - 2.0*(qx*qx + qy*qy)]
+    ], dtype=np.float32)
 
 class MonocularDepthNode:
     def __init__(self):
@@ -27,10 +60,20 @@ class MonocularDepthNode:
         self.input_name = self.session.get_inputs()[0].name
         
         self.bridge = CvBridge()
-        self.depth_scale = rospy.get_param("~depth_scale", 4.5)
-        self.max_depth_range = rospy.get_param("~max_depth_range", 3.0)
+        self.depth_scale = rospy.get_param("~depth_scale", 3.8)
+        self.max_depth_range = rospy.get_param("~max_depth_range", 3.5)
         self.step = rospy.get_param("~point_step", 3)
         self._prev_depth = None
+        
+        # State Temporal EMA Dynamic Range
+        self._ema_p_low = None
+        self._ema_p_high = None
+
+        # ORB-SLAM3 Sparse Anchoring State
+        self.latest_odom_pose = None
+        self.latest_odom_time = rospy.Time(0)
+        self.sparse_pts_world = None
+        self.slam_scale = 1.0
         
         # Ping1D Sonar Metric Anchor State
         self.latest_ping_distance = None
@@ -49,13 +92,31 @@ class MonocularDepthNode:
         self.last_info = None
         self._last_enhanced_time = rospy.Time(0)
         self.image_topic = rospy.get_param("~image_topic", "/camera/image_raw")
+        
+        # Subscribers
         rospy.Subscriber("/camera/camera_info", CameraInfo, self.info_callback, queue_size=5)
         rospy.Subscriber(self.image_topic, Image, self.image_callback, queue_size=1, buff_size=2**24)
         if self.image_topic != "/camera/image_raw":
             rospy.Subscriber("/camera/image_raw", Image, self.fallback_image_callback, queue_size=1, buff_size=2**24)
+            
+        rospy.Subscriber("/rtabmap/odom", Odometry, self.odom_callback, queue_size=5)
+        rospy.Subscriber("/orb_slam3/sparse_points", PointCloud2, self.sparse_pts_callback, queue_size=2)
         rospy.Subscriber("/sonar/ping1d/distance", Float64, self.ping_dist_callback, queue_size=5)
         rospy.Subscriber("/sonar/ping1d/range", Range, self.ping_range_callback, queue_size=5)
-        rospy.loginfo(f"Hyperbolic Monocular AI Depth initialized! Listening to: {self.image_topic}")
+        
+        rospy.loginfo(f"Planar Corrected Monocular Depth Node ready! Listening to: {self.image_topic}")
+
+    def odom_callback(self, msg):
+        self.latest_odom_pose = msg.pose.pose
+        self.latest_odom_time = msg.header.stamp
+
+    def sparse_pts_callback(self, msg):
+        try:
+            pts = list(pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True))
+            if pts:
+                self.sparse_pts_world = np.array(pts, dtype=np.float32)
+        except Exception:
+            pass
 
     def fallback_image_callback(self, msg):
         if (rospy.Time.now() - self._last_enhanced_time).to_sec() > 1.0:
@@ -89,6 +150,7 @@ class MonocularDepthNode:
             
         h, w = cv_img.shape[:2]
         
+        # 1. Inferensi Model MiDaS DPT (Disparitas Relatif)
         img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         resized = cv2.resize(img_rgb, (256, 256), interpolation=cv2.INTER_CUBIC)
         norm = resized.astype(np.float32) / 255.0
@@ -100,75 +162,32 @@ class MonocularDepthNode:
         out = self.session.run(None, {self.input_name: input_tensor})[0]
         depth_raw = out[0]
         
-        # Robust percentile clipping to eliminate outliers and glares
-        p_low = np.percentile(depth_raw, 2)
-        p_high = np.percentile(depth_raw, 98)
-        depth_clamped = np.clip(depth_raw, p_low, p_high)
+        # 2. Robust Percentile Clipping dengan Temporal EMA
+        # Menjaga dynamic range tetap stabil sehingga dinding tidak berdenyut/mengembang antar frame
+        p_low = float(np.percentile(depth_raw, 3))
+        p_high = float(np.percentile(depth_raw, 97))
+        if self._ema_p_low is None:
+            self._ema_p_low = p_low
+            self._ema_p_high = p_high
+        else:
+            self._ema_p_low = 0.85 * self._ema_p_low + 0.15 * p_low
+            self._ema_p_high = 0.85 * self._ema_p_high + 0.15 * p_high
+            
+        denom = max(self._ema_p_high - self._ema_p_low, 1e-4)
+        depth_clamped = np.clip(depth_raw, self._ema_p_low, self._ema_p_high)
+        disp_norm = (depth_clamped - self._ema_p_low) / denom
         
-        # Normalize disparity to [0.0, 1.0] (1.0 = close, 0.0 = far)
-        denom = max(p_high - p_low, 1e-4)
-        disp_norm = (depth_clamped - p_low) / denom
-        
-        # Physical Hyperbolic Depth Mapping (Disparity -> True Metric Depth):
-        # MiDaS memprediksi disparitas (inverse depth).
-        # Transformasi fisik yang benar: Z = 1.0 / (alpha * disp_norm + beta)
-        # Menghilangkan distorsi kerucut cembung dan menjaga dinding/lantai tetap datar!
-        z_near = 0.35
+        # 3. Formulasi Pemetaan Hiperbolik (Disparity -> Metric Depth)
+        z_near = 0.45
         z_far = float(self.depth_scale)
         alpha = (1.0 / z_near) - (1.0 / z_far)
         beta = 1.0 / z_far
         depth_metric = 1.0 / (alpha * disp_norm + beta)
-        
-        # Ping1D Metric Scale Anchor Calibration:
-        # Matches the monocular depth center field to true physical acoustic ground truth
-        now = rospy.Time.now()
-        if self.latest_ping_distance is not None and (now - self.latest_ping_time).to_sec() < 1.5:
-            h_raw, w_raw = depth_metric.shape
-            cy_c, cx_c = h_raw // 2, w_raw // 2
-            # Center acoustic cone region (approx 10% center box)
-            box_h = max(2, int(h_raw * 0.10))
-            box_w = max(2, int(w_raw * 0.10))
-            center_est = float(np.median(depth_metric[cy_c - box_h:cy_c + box_h, cx_c - box_w:cx_c + box_w]))
-            if center_est > 0.15:
-                scale_correction = float(self.latest_ping_distance) / center_est
-                # Bound scaling factor to prevent anomalous spikes
-                scale_correction = np.clip(scale_correction, 0.35, 2.8)
-                depth_metric = depth_metric * scale_correction
-        
-        # Temporal Exponential Moving Average (EMA) to smooth depth jitter across frames
-        if self._prev_depth is not None and self._prev_depth.shape == depth_metric.shape:
-            depth_metric = 0.70 * self._prev_depth + 0.30 * depth_metric
-        self._prev_depth = depth_metric.copy()
 
-        # Resize to full camera frame resolution before masking
+        # Resize ke resolusi asli kamera sebelum unproject
         depth_metric_resized = cv2.resize(depth_metric.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
 
-        # 1. Inner Boundary Masking (8% margin) - set to NaN to eliminate fan-wing frustum edge artifacts
-        by = max(2, int(h * 0.08))
-        bx = max(2, int(w * 0.08))
-        depth_metric_resized[:by, :] = np.nan
-        depth_metric_resized[-by:, :] = np.nan
-        depth_metric_resized[:, :bx] = np.nan
-        depth_metric_resized[:, -bx:] = np.nan
-
-        # 2. Distance range cutoff (ignore distant background so it doesn't form a giant cone)
-        depth_metric_resized[depth_metric_resized > float(self.max_depth_range)] = np.nan
-        depth_metric_resized[depth_metric_resized < 0.25] = np.nan
-        
-        # Common timestamp for perfect synchronization
-        now = rospy.Time.now()
-        
-        depth_msg = self.bridge.cv2_to_imgmsg(depth_metric_resized.astype(np.float32), encoding="32FC1")
-        depth_msg.header = msg.header
-        depth_msg.header.stamp = now
-        self.depth_pub.publish(depth_msg)
-        self.synced_depth_pub.publish(depth_msg)
-        
-        # Publish synchronized RGB
-        msg.header.stamp = now
-        self.synced_rgb_pub.publish(msg)
-        
-        # Publish synchronized CameraInfo
+        # 4. Ambil Parameter Intrinsik Kamera
         has_valid_info = (
             self.last_info is not None and
             len(self.last_info.K) == 9 and
@@ -180,7 +199,117 @@ class MonocularDepthNode:
             orig_h = self.last_info.height if self.last_info.height > 0 else h
             scale_x = w / float(orig_w)
             scale_y = h / float(orig_h)
+            fx = max(float(self.last_info.K[0]) * scale_x, 10.0)
+            fy = max(float(self.last_info.K[4]) * scale_y, 10.0)
+            cx = float(self.last_info.K[2]) * scale_x
+            cy = float(self.last_info.K[5]) * scale_y
+        else:
+            fx = 520.0 * (w / 640.0)
+            fy = 520.0 * (h / 480.0)
+            cx = w / 2.0
+            cy = h / 2.0
 
+        # 5. ORB-SLAM3 Sparse-to-Dense Metric Anchoring
+        # Memadukan titik-titik triangulasi ORB-SLAM3 untuk mengunci skala metrik absolut depth AI
+        now = rospy.Time.now()
+        b_anchored = False
+        if (self.sparse_pts_world is not None and 
+            self.latest_odom_pose is not None and 
+            (now - self.latest_odom_time).to_sec() < 1.0):
+            try:
+                p = self.latest_odom_pose.position
+                o = self.latest_odom_pose.orientation
+                t_w = np.array([p.x, p.y, p.z], dtype=np.float32)
+                R_odom = quat_to_rot_matrix(o.x, o.y, o.z, o.w)
+                
+                # Transformasi dari world odom ke camera optical frame:
+                # P_cam_opt = R_odom^T * (P_world - t_w)
+                diff = self.sparse_pts_world - t_w
+                pts_cam = (R_odom.T @ diff.T).T
+                
+                Xc = pts_cam[:, 0]
+                Yc = pts_cam[:, 1]
+                Zc = pts_cam[:, 2]
+                
+                valid = (Zc > 0.35) & (Zc < 4.5)
+                if np.count_nonzero(valid) >= 6:
+                    Xc_v = Xc[valid]
+                    Yc_v = Yc[valid]
+                    Zc_v = Zc[valid]
+                    
+                    u_pts = np.round(fx * (Xc_v / Zc_v) + cx).astype(np.int32)
+                    v_pts = np.round(fy * (Yc_v / Zc_v) + cy).astype(np.int32)
+                    
+                    in_img = (u_pts >= 15) & (u_pts < w - 15) & (v_pts >= 15) & (v_pts < h - 15)
+                    if np.count_nonzero(in_img) >= 6:
+                        u_valid = u_pts[in_img]
+                        v_valid = v_pts[in_img]
+                        z_gt = Zc_v[in_img]
+                        
+                        z_pred_samples = depth_metric_resized[v_valid, u_valid]
+                        valid_samples = (z_pred_samples > 0.2) & np.isfinite(z_pred_samples)
+                        if np.count_nonzero(valid_samples) >= 6:
+                            ratios = z_gt[valid_samples] / z_pred_samples[valid_samples]
+                            med_ratio = float(np.median(ratios))
+                            if 0.40 <= med_ratio <= 2.5:
+                                self.slam_scale = 0.88 * self.slam_scale + 0.12 * med_ratio
+                                depth_metric_resized = depth_metric_resized * self.slam_scale
+                                b_anchored = True
+                                rospy.loginfo_throttle(5.0, f"[Anchor ORB-SLAM3] Skala terkunci via {len(ratios)} MapPoints: s={self.slam_scale:.3f}")
+            except Exception:
+                pass
+
+        # 6. Fallback Kalibrasi Ping1D Sonar (jika ORB-SLAM3 belum aktif)
+        if not b_anchored and self.latest_ping_distance is not None and (now - self.latest_ping_time).to_sec() < 1.5:
+            cy_c, cx_c = h // 2, w // 2
+            box_h = max(2, int(h * 0.10))
+            box_w = max(2, int(w * 0.10))
+            center_est = float(np.median(depth_metric_resized[cy_c - box_h:cy_c + box_h, cx_c - box_w:cx_c + box_w]))
+            if center_est > 0.15:
+                scale_correction = float(self.latest_ping_distance) / center_est
+                scale_correction = np.clip(scale_correction, 0.35, 2.8)
+                depth_metric_resized = depth_metric_resized * scale_correction
+
+        # 7. Koreksi Anti-Kubah/Anti-Barrel (Spherical-to-Planar Ray Cosine):
+        # MiDaS memprediksi jarak radial Euclidean sepanjang sinar kamera R = sqrt(X^2 + Y^2 + Z^2).
+        # Tanpa koreksi cos(theta), titik di sudut gambar terdorong menjauh sebesar 1/cos(theta) (+26%),
+        # menyebabkan koridor/dinding datar melengkung cembung membentuk kubah.
+        u_grid_full, v_grid_full = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+        xn = (u_grid_full - cx) / fx
+        yn = (v_grid_full - cy) / fy
+        ray_cos = 1.0 / np.sqrt(1.0 + xn**2 + yn**2)
+        depth_metric_resized = depth_metric_resized * ray_cos
+
+        # 8. Perataan Temporal EMA antar Frame
+        if self._prev_depth is not None and self._prev_depth.shape == depth_metric_resized.shape:
+            depth_metric_resized = 0.65 * self._prev_depth + 0.35 * depth_metric_resized
+        self._prev_depth = depth_metric_resized.copy()
+
+        # 9. Inner Boundary Masking (6% margin) & Distance Cutoff
+        by = max(2, int(h * 0.06))
+        bx = max(2, int(w * 0.06))
+        depth_metric_resized[:by, :] = np.nan
+        depth_metric_resized[-by:, :] = np.nan
+        depth_metric_resized[:, :bx] = np.nan
+        depth_metric_resized[:, -bx:] = np.nan
+
+        depth_metric_resized[depth_metric_resized > float(self.max_depth_range)] = np.nan
+        depth_metric_resized[depth_metric_resized < 0.28] = np.nan
+        
+        # 10. Publikasi Gambar Kedalaman (32FC1)
+        now = rospy.Time.now()
+        depth_msg = self.bridge.cv2_to_imgmsg(depth_metric_resized.astype(np.float32), encoding="32FC1")
+        depth_msg.header = msg.header
+        depth_msg.header.stamp = now
+        self.depth_pub.publish(depth_msg)
+        self.synced_depth_pub.publish(depth_msg)
+        
+        # Publikasi Synchronized RGB
+        msg.header.stamp = now
+        self.synced_rgb_pub.publish(msg)
+        
+        # Publikasi Synchronized CameraInfo
+        if has_valid_info:
             info = CameraInfo()
             info.header.stamp = now
             info.header.frame_id = msg.header.frame_id
@@ -204,28 +333,19 @@ class MonocularDepthNode:
                 P[6] *= scale_y
             info.P = P
             self.synced_info_pub.publish(info)
-            
-            fx = max(float(K[0]), 10.0)
-            cx = float(K[2])
-            fy = max(float(K[4]), 10.0)
-            cy = float(K[5])
         else:
             info = CameraInfo()
             info.header.stamp = now
             info.header.frame_id = msg.header.frame_id
             info.width = w
             info.height = h
-            fx = 520.0 * (w / 640.0)
-            fy = 520.0 * (h / 480.0)
-            cx = w / 2.0
-            cy = h / 2.0
             info.distortion_model = "plumb_bob"
             info.D = [0.0, 0.0, 0.0, 0.0, 0.0]
             info.K = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
             info.P = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
             self.synced_info_pub.publish(info)
         
-        # Always publish dense per-frame PointCloud2 for real-time 3D surface visualization
+        # 11. Publikasi Real-Time PointCloud2 untuk Visualisasi Permukaan 3D
         step = max(1, int(self.step))
         u_coords, v_coords = np.meshgrid(np.arange(0, w, step), np.arange(0, h, step))
         Z = depth_metric_resized[v_coords, u_coords].astype(np.float32)
@@ -239,12 +359,11 @@ class MonocularDepthNode:
         rgb_packed = (r << 16) | (g << 8) | b
         rgb_float = np.frombuffer(rgb_packed.tobytes(), dtype=np.float32).reshape(X.shape)
         
-        # Filter NaN, Inf, out-of-range points, and outer flared border wings
         border_u = int(w * 0.05)
         border_v = int(h * 0.05)
         inner_mask = (u_coords >= border_u) & (u_coords <= (w - border_u)) & \
                      (v_coords >= border_v) & (v_coords <= (h - border_v))
-        valid_mask = (Z > 0.25) & (Z < 5.0) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z) & inner_mask
+        valid_mask = (Z > 0.28) & (Z < float(self.max_depth_range)) & np.isfinite(X) & np.isfinite(Y) & np.isfinite(Z) & inner_mask
         
         X_val = X[valid_mask]
         Y_val = Y[valid_mask]
@@ -252,7 +371,6 @@ class MonocularDepthNode:
         rgb_val = rgb_float[valid_mask]
         
         points = np.stack([X_val, Y_val, Z_val, rgb_val], axis=-1)
-        
         fields = [
             PointField('x', 0, PointField.FLOAT32, 1),
             PointField('y', 4, PointField.FLOAT32, 1),

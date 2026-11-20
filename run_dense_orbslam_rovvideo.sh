@@ -7,6 +7,12 @@ set -e
 source /opt/ros/noetic/setup.bash
 source "$HOME/catkin_ws/devel/setup.bash"
 
+# Bersihkan sisa proses lama agar tidak ada port clash
+killall -9 roscore rosmaster roslaunch rviz orb_slam3_odom_node 2>/dev/null || true
+
+# Bersihkan file duplikat launch di root paket jika ada
+rm -f "$HOME/catkin_ws/src/subsea_3d_mapping/live_orbslam_dense_mapping.launch" 2>/dev/null || true
+
 # Auto-sync files from Windows workspace and build
 if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     echo "[BUILD] Menyinkronkan update C++, RViz, dan launch file..."
@@ -17,6 +23,7 @@ if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     cp /mnt/c/remote_ROV/subsea_mapping.rviz ~/catkin_ws/src/subsea_3d_mapping/subsea_mapping.rviz
     mkdir -p ~/catkin_ws/src/subsea_3d_mapping/rviz
     cp /mnt/c/remote_ROV/subsea_mapping.rviz ~/catkin_ws/src/subsea_3d_mapping/rviz/subsea_mapping.rviz
+    mkdir -p ~/catkin_ws/src/subsea_3d_mapping/launch
     cp /mnt/c/remote_ROV/live_orbslam_dense_mapping.launch ~/catkin_ws/src/subsea_3d_mapping/launch/
     mkdir -p ~/slam_ws
     cp /mnt/c/remote_ROV/webcam_640.yaml ~/slam_ws/webcam_640.yaml
@@ -24,19 +31,33 @@ if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     source "$HOME/catkin_ws/devel/setup.bash"
 fi
 
-# Pastikan waktu WSL2 sinkron dengan hardware Windows
-sudo hwclock -s 2>/dev/null || true
-
+# Akselerasi OpenGL Hardware D3D12 untuk WSL2 (mencegah crash swrast_dri)
+export GALLIUM_DRIVER=d3d12
+export MESA_D3D12_DEFAULT_ADAPTER_NAME=AMD
+export LIBGL_ALWAYS_SOFTWARE=0
 export DISPLAY=${DISPLAY:-:0}
 
-VIDEO_PATH="/mnt/c/remote_ROV/videos/YTDown.com_YouTube_Media_g4bUv6Fx3Pk_Site-113-A-Steel-Container-from-a-BlueROV2_001_1080p.mp4"
+# Deteksi file video
+if [ -n "$1" ]; then
+    INPUT_VIDEO="$1"
+else
+    INPUT_VIDEO=$(ls -t /mnt/c/remote_ROV/videos/*.mp4 2>/dev/null | head -n 1)
+    if [ -z "$INPUT_VIDEO" ]; then
+        INPUT_VIDEO="/mnt/c/remote_ROV/videos/2026-11-16 16-01-50.mp4"
+    fi
+fi
+
+# Salin video ke local WSL filesystem ~/slam_ws/current_test.mp4
+mkdir -p "$HOME/slam_ws"
+cp -f "$INPUT_VIDEO" "$HOME/slam_ws/current_test.mp4"
 
 echo "=========================================================="
-echo "  DENSE NEURAL-SLAM: REKAMAN VIDEO ROV KONTAINER BAWAH LAUT"
+echo "  DENSE NEURAL-SLAM: REKAMAN VIDEO ROV BAWAH AIR"
 echo "=========================================================="
-echo "Video File : $VIDEO_PATH"
+echo "Video File : $INPUT_VIDEO"
+echo "Local Copy : $HOME/slam_ws/current_test.mp4"
 echo "Display    : $DISPLAY"
 echo "=========================================================="
 echo ""
 
-roslaunch subsea_3d_mapping live_orbslam_dense_mapping.launch camera_source:="$VIDEO_PATH"
+roslaunch "$HOME/catkin_ws/src/subsea_3d_mapping/launch/live_orbslam_dense_mapping.launch" camera_source:="$HOME/slam_ws/current_test.mp4"

@@ -47,9 +47,33 @@ goto end
 
 :rov_video
 echo.
-echo [*] Menjalankan Fusi pada Rekaman Video ROV Kontainer Bawah Laut...
+echo ====================================================================
+echo   PILIH REKAMAN VIDEO UNTUK PENGUJIAN FUSI DENSE NEURAL-SLAM
+echo ====================================================================
+echo   [1] Video Terbaru: 2026-11-16 16-01-50.mp4 (Rekaman Baru) [Default]
+echo   [2] Video Kontainer ROV Lama: Site-113-A-Steel-Container
+echo   [3] Gunakan File Video Lain di Folder videos/
+echo.
+set /p VID_SEL="Pilih video [1-3 - Default 1]: "
+if "%VID_SEL%"=="" set VID_SEL=1
+
+if "%VID_SEL%"=="1" (
+    set "SELECTED_VID=/mnt/c/remote_ROV/videos/2026-11-16 16-01-50.mp4"
+) else if "%VID_SEL%"=="2" (
+    set "SELECTED_VID=/mnt/c/remote_ROV/videos/YTDown.com_YouTube_Media_g4bUv6Fx3Pk_Site-113-A-Steel-Container-from-a-BlueROV2_001_1080p.mp4"
+) else (
+    echo.
+    echo Daftar file video yang tersedia di videos\:
+    dir /b videos\*.mp4
+    echo.
+    set /p CUST_NAME="Ketik nama file video (contoh: video_tes.mp4): "
+    set "SELECTED_VID=/mnt/c/remote_ROV/videos/%CUST_NAME%"
+)
+
+echo.
+echo [*] Menjalankan Fusi pada Video: %SELECTED_VID%
 echo [*] Meluncurkan Pipeline: ORB-SLAM3 Tracking + Depth AI MiDaS + RTAB-Map...
-wsl -d Ubuntu-20.04 -- bash -c "export DISPLAY=:0 && ~/slam_ws/run_dense_orbslam_rovvideo.sh"
+wsl -d Ubuntu-20.04 -- bash -c "export DISPLAY=:0 && ~/slam_ws/run_dense_orbslam_rovvideo.sh '%SELECTED_VID%'"
 pause
 goto end
 

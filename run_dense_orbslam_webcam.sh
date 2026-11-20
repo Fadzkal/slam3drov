@@ -7,6 +7,9 @@ set -e
 source /opt/ros/noetic/setup.bash
 source "$HOME/catkin_ws/devel/setup.bash"
 
+# Bersihkan file duplikat launch di root paket jika ada
+rm -f "$HOME/catkin_ws/src/subsea_3d_mapping/live_orbslam_dense_mapping.launch" 2>/dev/null || true
+
 # Auto-sync files from Windows workspace and build
 if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     echo "[BUILD] Menyinkronkan update C++, RViz, dan launch file..."
@@ -17,6 +20,7 @@ if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     cp /mnt/c/remote_ROV/subsea_mapping.rviz ~/catkin_ws/src/subsea_3d_mapping/subsea_mapping.rviz
     mkdir -p ~/catkin_ws/src/subsea_3d_mapping/rviz
     cp /mnt/c/remote_ROV/subsea_mapping.rviz ~/catkin_ws/src/subsea_3d_mapping/rviz/subsea_mapping.rviz
+    mkdir -p ~/catkin_ws/src/subsea_3d_mapping/launch
     cp /mnt/c/remote_ROV/live_orbslam_dense_mapping.launch ~/catkin_ws/src/subsea_3d_mapping/launch/
     mkdir -p ~/slam_ws
     cp /mnt/c/remote_ROV/webcam_640.yaml ~/slam_ws/webcam_640.yaml
@@ -24,8 +28,8 @@ if [ -f /mnt/c/remote_ROV/src/orb_slam3_odom_node.cpp ]; then
     source "$HOME/catkin_ws/devel/setup.bash"
 fi
 
-# Pastikan waktu WSL2 sinkron dengan hardware Windows
-sudo hwclock -s 2>/dev/null || true
+# Sinkronkan waktu WSL2 tanpa meminta password sudo
+sudo -n hwclock -s 2>/dev/null || true
 
 export DISPLAY=${DISPLAY:-:0}
 
@@ -87,4 +91,4 @@ echo "[INFO] Input Camera: $SOURCE"
 echo "[INFO] Membuka jendela Pangolin + RViz 3D Visualizer..."
 echo ""
 
-roslaunch subsea_3d_mapping live_orbslam_dense_mapping.launch camera_source:="$SOURCE"
+roslaunch "$HOME/catkin_ws/src/subsea_3d_mapping/launch/live_orbslam_dense_mapping.launch" camera_source:="$SOURCE"
