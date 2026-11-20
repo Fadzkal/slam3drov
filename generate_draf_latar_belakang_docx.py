@@ -4,21 +4,15 @@ generate_draf_latar_belakang_docx.py
 =============================================================================
 Generator Dokumen Word Proposal Tugas Akhir Sesuai Standar Pedoman Baru:
 "URGENSI DAN NOVELTY PROPOSAL TA" (Pedoman Polman Bandung)
+Revisi: Penajaman Urgensi Tanpa Celah (Tunnel Vision, Refractive Distortion, No Spatial Map)
 
-Struktur Utama:
-1. Cover Judul Resmi:
-   "IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER"
-2. I.1 Latar Belakang:
-   - 4 Langkah Membangun Urgensi (Masalah Nyata, Dampak Terukur/Angka, Bukti Sumber, Mengapa Sekarang).
-   - Peta Rujukan (Tabel 4 Kolom: Rujukan | Pendekatan | Keterbatasan | Celah).
-   - 4 Bentuk Novelty Riset Terapan (Kombinasi Baru, Adaptasi Tepat Guna, Peningkatan Terukur).
-   - Rumus Satu Paragraf Emas (Urgensi, Celah, Novelty).
-3. I.2 Rumusan Masalah
-4. I.3 Tujuan Penelitian (Target Terukur)
-5. I.4 Batasan Masalah
-6. I.5 Manfaat Penelitian
-7. I.6 Rencana Pengambilan & Pengujian Data Praktis (Bab IV)
-8. DAFTAR PUSTAKA (Standar IEEE)
+Judul Resmi:
+"IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER"
+
+Penulis : Fadzkal Luthfi Mayzanio (NIM: 223443033)
+Program : D4 Teknologi Rekayasa Informatika Industri (TRII)
+Jurusan : Teknik Otomasi Manufaktur dan Mekatronika (TOMM)
+Institusi: Politeknik Manufaktur Bandung (Polman Bandung), 2026
 =============================================================================
 """
 
@@ -175,28 +169,28 @@ def create_document():
     add_heading_1("BAB I\nPENDAHULUAN")
 
     # -------------------------------------------------------------------------
-    # I.1 Latar Belakang (Mengikuti 4 Langkah Urgensi & Novelty Polman)
+    # I.1 Latar Belakang (Penajaman Urgensi Tanpa Celah)
     # -------------------------------------------------------------------------
     add_heading_2("I.1  Latar Belakang")
 
-    # Langkah 1 & 2: Masalah Nyata & Dampak Terukur
+    # Paragraf 1: Masalah Nyata, Alasan Tabrakan (Tunnel Vision, Refraksi, No Spatial Map)
     add_para(
-        "Inspeksi integritas struktural fasilitas industri bawah air—seperti lambung kapal, dinding tangki penyimpanan cairan industri, pilar dermaga manufaktur, dan jaringan pipa penyalur—merupakan aktivitas pemeliharaan kritis untuk mencegah kegagalan operasional katastropik. Selama ini, industri mengandalkan penyelam komersial manusia (commercial diver) yang memakan biaya operasional sangat mahal, mencapai USD 15.000 hingga USD 30.000 per operasi inspeksi harian, serta memiliki risiko keselamatan fisik yang mengancam nyawa. Untuk mengeliminasi risiko tersebut, industri beralih memanfaatkan wahana robot bawah air kendali jarak jauh atau Remotely Operated Vehicle (ROV). Namun, pengoperasian ROV di bawah air menghadapi kendala mendasar: ketiadaan total sinyal satelit navigasi global (GPS-Denied Environment) akibat atenuasi gelombang radio frekuensi tinggi di dalam air. Dampaknya, operator di darat hanya mengandalkan umpan balik visual berupa rekaman video 2D monokuler konvensional dari kamera depan wahana. Tampilan 2D ini menghilangkan persepsi kedalaman spasial dan bentuk tiga dimensi (3D), sehingga operator mengalami disorientasi arah dengan tingkat insiden tabrakan wahana ke struktur industri mencapai 30% hingga 45% dalam survei teleoperasi, serta menyulitkan penentuan lokasi cacat struktur secara presisi."
+        "Inspeksi integritas struktural fasilitas industri bawah air—seperti lambung kapal, dinding tangki penyimpanan cairan industri, pilar dermaga manufaktur, dan jaringan pipa penyalur—merupakan aktivitas pemeliharaan kritis untuk mencegah kegagalan operasional katastropik. Selama ini, industri mengandalkan penyelam komersial manusia (commercial diver) yang memakan biaya operasional sangat mahal, mencapai USD 15.000 hingga USD 30.000 per operasi inspeksi harian, serta memiliki risiko keselamatan fisik yang tinggi. Sebagai alternatif yang lebih aman dan efisien, industri memanfaatkan wahana robot bawah air kendali jarak jauh (Remotely Operated Vehicle / ROV). Akan tetapi, di lingkungan bawah air, sinyal satelit navigasi global teratenuasi habis oleh media air sehingga wahana beroperasi pada lingkungan tanpa GPS (GPS-denied environment). Selama pengoperasian, operator di darat murni hanya bergantung pada umpan balik visual dari kamera depan ROV. Meskipun kamera aktif, survei teleoperasi industri mencatat insiden tabrakan wahana ke struktur rintangan masih mencapai 30% hingga 45%. Hal ini terjadi karena aliran video 2D konvensional memiliki tiga keterbatasan perseptual mendasar: (1) sudut pandang kamera yang sempit (field-of-view hanya 70°–80°) memicu efek lubang kunci (tunnel vision/keyhole effect), di mana rintangan di sisi samping dan belakang wahana tidak terlihat; (2) fenomena refraksi optik pada kubah kamera dan air menipu persepsi operator, membuat objek tampak 33% lebih dekat dan lebih besar dari ukuran fisik sebenarnya; dan (3) video 2D bersifat sesaat (transient) tanpa rekaman peta riwayat spasial (spatial history map), sehingga operator kehilangan orientasi posisi relatif wahana terhadap struktur yang telah dilintasi beberapa saat sebelumnya."
     )
 
-    # Langkah 3: Buktikan dengan Sumber & Batasan Teknologi
+    # Paragraf 2: Batasan Sensor Fisik (Mengapa Kamera Monokuler?)
     add_para(
-        "Standar industri maritim (seperti regulasi International Marine Contractors Association / IMCA dan DNV-GL) menuntut tersedianya dokumentasi inspeksi visual 3D yang dapat diverifikasi secara berulang. Di lingkungan darat, pemetaan 3D umumnya diselesaikan menggunakan sensor aktif LiDAR atau kamera inframerah Time-of-Flight (seperti Intel RealSense). Namun, teknologi optik inframerah tersebut gagal total saat dimasukkan ke dalam air karena panjang gelombang inframerah (700–1100 nm) diserap habis oleh molekul air dalam jarak kurang dari 0,2 meter. Alternatif sensor akustik seperti Multibeam Sonar 3D atau Acoustic Camera berharga sangat mahal (berkisar antara USD 35.000 hingga USD 80.000 atau setara Rp 550 juta–Rp 1,2 miliar per unit), berbobot berat (> 8 kg), dan mengonsumsi daya listrik masif, sehingga tidak memungkinkan dipasang pada ROV kelas kompak industri (micro/observation-class ROV) yang memiliki batasan muatan payload dan ruang terbatas."
+        "Standar industri maritim (seperti regulasi International Marine Contractors Association / IMCA dan DNV-GL) menuntut tersedianya dokumentasi inspeksi visual 3D yang dapat diverifikasi secara berulang. Di lingkungan darat, rekonstruksi 3D umumnya diselesaikan menggunakan sensor aktif LiDAR atau kamera inframerah Time-of-Flight (seperti Intel RealSense). Namun, teknologi optik inframerah tersebut gagal total saat dimasukkan ke dalam air karena panjang gelombang inframerah (700–1100 nm) diserap habis oleh molekul air dalam jarak kurang dari 0,2 meter. Alternatif sensor akustik seperti Multibeam Sonar 3D atau Acoustic Camera berharga sangat mahal (berkisar antara USD 35.000 hingga USD 80.000 atau setara Rp 550 juta–Rp 1,2 miliar per unit), berbobot berat (> 8 kg), dan mengonsumsi daya listrik masif, sehingga tidak memungkinkan dipasang pada ROV kelas kompak industri (micro/observation-class ROV) yang memiliki batasan muatan payload dan ruang terbatas. Oleh karena itu, kamera monokuler tunggal standar yang sudah terpasang di setiap unit ROV menjadi instrumen paling rasional dan ekonomis untuk dioptimalkan sebagai sensor utama pemetaan 3D."
     )
 
-    # Langkah 4: Jelaskan Mengapa Sekarang (Perkembangan Visual SLAM & AI)
+    # Paragraf 3: Visual SLAM Klasik (ORB-SLAM3) & Keterbatasannya
     add_para(
-        "Peluang teknologi yang kini sangat terjangkau adalah mengoptimalkan instrumen yang sudah tersedia secara cuma-cuma di setiap ROV, yaitu kamera monokuler tunggal (single RGB camera). Melalui pendekatan Simultaneous Localization and Mapping (SLAM) visual, wahana dapat memperkirakan pergerakan posisinya secara mandiri sekaligus merekonstruksi peta lingkungan. Algoritma state-of-the-art Geometric SLAM terbaik saat ini adalah ORB-SLAM3 [1] (Campos et al., IEEE T-RO 2021) yang menyempurnakan ORB-SLAM2 [2]. ORB-SLAM3 terbukti sangat presisi dalam melacak pergerakan pose 6 derajat kebebasan (6-DoF: translasi X,Y,Z dan rotasi Roll,Pitch,Yaw) serta memiliki fitur loop closure multi-peta Atlas yang mencegah akumulasi drift. Namun demikian, representasi peta ORB-SLAM3 murni berupa awan titik jarang (sparse point cloud). Peta sparse hanya berisi titik-titik fitur diskrit yang terpisah di ruang hampa, sehingga sama sekali tidak mampu merepresentasikan bidang permukaan fisik objek, kontur dinding tangki, atau wujud rintangan padat yang sesungguhnya dibutuhkan untuk inspeksi struktur industri [1], [2]."
+        "Pemanfaatan kamera tunggal untuk navigasi dan pemetaan diselesaikan melalui teknologi Visual Simultaneous Localization and Mapping (Visual SLAM). Algoritma state-of-the-art Geometric SLAM terbaik saat ini adalah ORB-SLAM3 [1] (Campos et al., IEEE T-RO 2021) yang menyempurnakan ORB-SLAM2 [2]. ORB-SLAM3 terbukti sangat presisi dalam melacak pergerakan pose 6 derajat kebebasan (6-DoF: translasi X, Y, Z dan rotasi Roll, Pitch, Yaw) serta memiliki fitur loop closure multi-peta Atlas yang mencegah akumulasi drift. Namun demikian, representasi peta yang dihasilkan oleh ORB-SLAM3 murni berupa awan titik jarang (sparse point cloud). Peta sparse hanya menampilkan titik-titik fitur diskrit yang terpisah di ruang hampa tanpa hubungan topologi permukaan, sehingga tidak mampu merepresentasikan wujud fisik objek padat, bidang dinding tangki, maupun geometri rintangan yang dibutuhkan operator untuk memahami ruang secara utuh [1], [2]."
     )
 
-    # Celah Riset dari Rujukan Utama
+    # Paragraf 4: Celah Penelitian dari Rujukan Utama (EgoExo++, Loopy-SLAM, MiDaS)
     add_para(
-        "Kebutuhan pemetaan permukaan bawah air sebelumnya diteliti oleh Abdullah et al. (2024) melalui riset EgoExo++ [3] pada robot BlueROV2 di sistem gua bawah air Peacock Springs, Florida. Riset tersebut membuktikan urgensi estimasi permukaan tanah sebagai datum keselamatan navigasi anti-tabrakan. Akan tetapi, EgoExo++ masih terbatas pada pemodelan elevasi dasar laut 2.5D dan belum menghasilkan rekonstruksi volumetrik 3D penuh terhadap objek atau dinding di sekitar wahana. Di sisi lain, riset mutakhir dense neural SLAM seperti Loopy-SLAM oleh Liso et al. (CVPR 2024) [4] menunjukkan rekonstruksi padat bebas drift berbasis neural point clouds, namun menuntut komputasi neural rendering yang sangat berat sehingga tidak dapat berjalan secara real-time pada perangkat bergerak ROV. Untuk mengisi kesenjangan antara akurasi pelacakan dan kerapatan visual, model deep learning estimasi struktur spasial monokuler seperti MiDaS DPT (Ranftl et al., IEEE TPAMI 2022) [5] membuka terobosan baru. Model AI ini mampu mengekstraksi jarak spasial kontinu per-piksel dari citra 2D tunggal. Namun, nilainya bersifat relatif tak berdimensi (scale ambiguity) dan apabila di-unproject tanpa sinkronisasi odometri yang tepat, titik-titik rekonstruksi akan saling menumpuk di satu tempat (stacking/overlap) saat wahana bermanuver lambat [3]–[6]."
+        "Kebutuhan pemodelan permukaan padat bawah air sebelumnya diteliti oleh Abdullah et al. (2024) melalui riset EgoExo++ [3] pada robot BlueROV2 di sistem gua bawah air Peacock Springs, Florida. Riset tersebut membuktikan urgensi estimasi permukaan tanah sebagai datum keselamatan navigasi anti-tabrakan. Akan tetapi, EgoExo++ masih terbatas pada pemodelan elevasi dasar laut 2.5D dan belum mampu merekonstruksi dinding vertikal maupun geometri objek 3D secara menyeluruh di depan wahana. Di sisi lain, riset mutakhir dense visual SLAM seperti Loopy-SLAM oleh Liso et al. (CVPR 2024) [4] menunjukkan rekonstruksi padat bebas drift berbasis neural point clouds, namun menuntut komputasi neural rendering yang sangat masif sehingga tidak realistis untuk dijalankan secara real-time pada sistem komputasi bergerak ROV. Untuk mengisi kesenjangan antara akurasi pelacakan dan kerapatan visual, model deep learning estimasi struktur spasial monokuler seperti MiDaS DPT (Ranftl et al., IEEE TPAMI 2022) [5] membuka terobosan baru. Model AI ini mampu mengekstraksi struktur kedalaman kontinu per-piksel dari citra 2D tunggal. Namun, nilainya bersifat relatif tak berdimensi (scale ambiguity) dan apabila diproyeksikan tanpa sinkronisasi odometri gerak yang tepat, titik-titik rekonstruksi akan saling menumpuk di satu tempat (stacking/overlap) saat wahana bermanuver lambat [3]–[6]."
     )
 
     # -------------------------------------------------------------------------
@@ -246,7 +240,7 @@ def create_document():
             "Abdullah et al. (2024) [3]\n(EgoExo++ / ICRA)",
             "Estimasi permukaan tanah 2.5D berbasis bidang RANSAC pada BlueROV2 di gua bawah air.",
             "Terbatas pada pemodelan elevasi 2.5D dasar laut; belum mampu merekonstruksi dinding vertikal dan geometri objek 3D secara utuh.",
-            "Peluang memperluas representasi dari sekadar datum dasar laut 2.5D menjadi pemetaan 3D padat menyeluruh terhadap objek rintangan di depan ROV."
+            "Peluang memperluas representasi dari sekadar datum dasar laut 2.5D menjadi pemetaan 3D padat menyeluruh terhadap rintangan di sekeliling ROV."
         ),
         (
             "Liso et al. (2024) [4]\n(Loopy-SLAM / CVPR)",
@@ -293,11 +287,11 @@ def create_document():
         space_after=4
     )
     add_para(
-        "1. Kombinasi Baru: Menggabungkan pelacakan 6-DoF ORB-SLAM3 yang presisi, model inferensi spasial AI monokuler MiDaS, dan engine pemetaan volumetrik RTAB-Map [6] melalui matriks rotasi ortogonal R_align yang menyelaraskan koordinat optik kamera ke standar navigasi robotika ROS ENU.",
+        "1. Kombinasi Baru: Menggabungkan pelacakan pose 6-DoF ORB-SLAM3 yang presisi, model inferensi spasial AI monokuler MiDaS, dan engine pemetaan volumetrik RTAB-Map [6] melalui matriks rotasi ortogonal R_align yang menyelaraskan koordinat optik kamera ke standar navigasi robotika ROS ENU.",
         first_indent=Cm(1.27), space_after=3
     )
     add_para(
-        "2. Adaptasi Tepat Guna: Menggantikan kebutuhan sensor multibeam sonar 3D atau LiDAR bawah air berharga ratusan juta rupiah dengan hanya memanfaatkan satu unit kamera monokuler standar bawaan ROV (biaya penambahan perangkat keras sensor = Rp 0).",
+        "2. Adaptasi Tepat Guna: Menggantikan kebutuhan sensor multibeam sonar 3D atau LiDAR bawah air berharga ratusan juta rupiah dengan hanya memanfaatkan satu unit kamera monokuler bawaan ROV (biaya penambahan perangkat keras sensor = Rp 0).",
         first_indent=Cm(1.27), space_after=3
     )
     add_para(
@@ -305,7 +299,7 @@ def create_document():
         first_indent=Cm(1.27), space_after=8
     )
 
-    # RUMUS SATU PARAGRAF EMAS (Slide 5 Pedoman Polman)
+    # RUMUS SATU PARAGRAF EMAS (KEDAP CELAH / REVISI TOTAL)
     p_box = doc.add_paragraph()
     p_box.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     p_box.paragraph_format.space_before = Pt(6)
@@ -322,17 +316,17 @@ def create_document():
     r_u1 = p_box.add_run("[URGENSI] ")
     r_u1.bold = True
     r_u1.font.name = 'Times New Roman'
-    p_box.add_run("Ketiadaan sinyal GPS di bawah air dan keterbatasan video 2D kamera ROV menyebabkan disorientasi arah operator dengan risiko tabrakan struktur industri mencapai 30–45%, sementara sensor pemetaan sonar 3D berharga sangat mahal (> Rp 550 juta). ")
+    p_box.add_run("Di lingkungan bawah air tanpa sinyal GPS, operator ROV hanya mengandalkan video 2D dengan sudut pandang sempit (tunnel vision) dan distorsi refraksi air yang menipu estimasi jarak serta tidak menyediakan peta riwayat spasial area yang telah dilintasi, sehingga operator kehilangan orientasi posisi terhadap rintangan di sekeliling wahana saat bermanuver di ruang sempit industri. ")
 
     r_c1 = p_box.add_run("[CELAH] ")
     r_c1.bold = True
     r_c1.font.name = 'Times New Roman'
-    p_box.add_run("Penelitian terdahulu visual SLAM monokuler (ORB-SLAM3) hanya menghasilkan awan titik jarang (sparse), sedangkan estimasi permukaan bawah air (EgoExo++) terbatas pada elevasi tanah 2.5D dan belum merekonstruksi struktur 3D penuh. ")
+    p_box.add_run("Penelitian terdahulu visual SLAM monokuler (ORB-SLAM3) hanya menghasilkan titik-titik fitur jarang (sparse) yang tidak menggambarkan wujud permukaan fisik, sedangkan metode pemetaan permukaan bawah air (EgoExo++) terbatas pada elevasi dasar laut 2.5D dan belum merekonstruksi struktur rintangan 3D secara utuh. ")
 
     r_n1 = p_box.add_run("[NOVELTY] ")
     r_n1.bold = True
     r_n1.font.name = 'Times New Roman'
-    p_box.add_run("Penelitian ini mengimplementasikan fusi Visual SLAM hibrida monokuler yang memadukan pelacakan 6-DoF ORB-SLAM3, inferensi struktur spasial AI, dan RTAB-Map dengan algoritma movement-based gating untuk menghasilkan pemetaan 3D padat berwarna real-time (15–20 FPS) dan kerapatan titik > 100.000 voxel pada ROV di lingkungan tanpa GPS.")
+    p_box.add_run("Penelitian ini mengimplementasikan sistem fusi Visual SLAM monokuler yang merekonstruksi aliran video 2D menjadi peta 3D padat dan berwarna (dense volumetric map) secara real-time (15–20 FPS) dengan algoritma movement-based gating, sehingga operator memperoleh visualisasi peta situasi 3D menyeluruh terhadap seluruh struktur yang pernah dilalui hanya bermodalkan satu kamera bawaan ROV.")
 
     add_para(
         "Berdasarkan uraian komprehensif tersebut, tugas akhir ini diajukan dengan judul resmi: \"IMPLEMENTASI VISUAL SLAM UNTUK PEMETAAN 3D BAWAH AIR PADA REMOTELY OPERATED VEHICLE (ROV) DENGAN KAMERA MONOKULER\".",
