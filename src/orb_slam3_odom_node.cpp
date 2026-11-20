@@ -59,6 +59,7 @@ public:
         pnh_.param<bool>("publish_tf", bPublishTf_, true);
         pnh_.param<bool>("use_pangolin", bUsePangolin_, true);
         pnh_.param<double>("fps", dFps_, 30.0);
+        pnh_.param<double>("trajectory_scale", dTrajectoryScale_, 3.0);  // Faktor skala trajectory monocular
 
         ROS_INFO("==========================================================");
         ROS_INFO("  ORB-SLAM3 ODOMETRY NODE: 6-DoF Tracker for RTAB-Map & AI");
@@ -308,6 +309,13 @@ private:
                         0.0f, -1.0f,  0.0f;
 
             Eigen::Vector3f t_odom = R_align * Twc.translation();
+            
+            // Scale up trajectory monocular agar cocok dengan skala depth MiDaS
+            // Monocular SLAM menghasilkan translasi dalam skala arbitrary yang sangat kecil,
+            // sementara depth map memprediksi jarak 0.5-3.0m. Tanpa scaling, point cloud
+            // dari frame-frame berurutan akan bertumpuk karena kamera "belum bergerak cukup".
+            t_odom *= static_cast<float>(dTrajectoryScale_);
+            
             Eigen::Matrix3f R_odom = R_align * Twc.rotationMatrix();
             Eigen::Quaternionf q_odom(R_odom);
 
@@ -776,6 +784,7 @@ private:
     }
 
     float fx_, fy_, cx_, cy_;
+    double dTrajectoryScale_;
 
     struct StoredPoint {
         float x, y, z;

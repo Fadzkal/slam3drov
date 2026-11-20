@@ -63,7 +63,10 @@ class MonocularDepthNode:
         self.depth_scale = rospy.get_param("~depth_scale", 3.8)
         self.max_depth_range = rospy.get_param("~max_depth_range", 3.5)
         self.step = rospy.get_param("~point_step", 3)
+        self.depth_divisor = rospy.get_param("~depth_divisor", 1.0)  # Skala pembagi depth agar match trajectory
         self._prev_depth = None
+        self._frame_count = 0
+        self._depth_publish_interval = rospy.get_param("~depth_publish_interval", 3)  # Publish depth setiap N frame (reduce overlap)
         
         # State Temporal EMA Dynamic Range
         self._ema_p_low = None
@@ -72,6 +75,9 @@ class MonocularDepthNode:
         # ORB-SLAM3 Sparse Anchoring State
         self.latest_odom_pose = None
         self.latest_odom_time = rospy.Time(0)
+        self.latest_odom_translation = None  # Track pergerakan kamera
+        self._last_published_translation = None
+        self._min_movement_threshold = rospy.get_param("~min_movement", 0.03)  # Min 3cm gerakan sebelum publish depth baru
         self.sparse_pts_world = None
         self.slam_scale = 1.0
         
@@ -109,6 +115,8 @@ class MonocularDepthNode:
     def odom_callback(self, msg):
         self.latest_odom_pose = msg.pose.pose
         self.latest_odom_time = msg.header.stamp
+        p = msg.pose.pose.position
+        self.latest_odom_translation = np.array([p.x, p.y, p.z], dtype=np.float32)
 
     def sparse_pts_callback(self, msg):
         try:
@@ -137,9 +145,20 @@ class MonocularDepthNode:
 
     def image_callback(self, msg):
         now = rospy.Time.now()
-        # Throttle to max 12.5 FPS so CPU has plenty of headroom for RViz & RTAB-Map
-        if (now - self._last_depth_time).to_sec() < 0.08:
+        # Throttle to max 8 FPS (dari 12.5 FPS) agar CPU punya headroom lebih
+        if (now - self._last_depth_time).to_sec() < 0.125:
             return
+        
+        # Movement-based gating: Hanya publish depth baru jika kamera sudah bergerak
+        # minimal threshold dari posisi terakhir. Ini mencegah point cloud bertumpuk
+        # di tempat yang sama ketika ROV diam atau bergerak sangat lambat.
+        if self.latest_odom_translation is not None:
+            if self._last_published_translation is not None:
+                movement = np.linalg.norm(self.latest_odom_translation - self._last_published_translation)
+                if movement < self._min_movement_threshold:
+                    return  # Kamera belum bergerak cukup, skip frame ini
+            self._last_published_translation = self.latest_odom_translation.copy()
+        
         self._last_depth_time = now
         self._last_image_time = now
         try:
