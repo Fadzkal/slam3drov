@@ -59,7 +59,7 @@ public:
         pnh_.param<bool>("publish_tf", bPublishTf_, true);
         pnh_.param<bool>("use_pangolin", bUsePangolin_, true);
         pnh_.param<double>("fps", dFps_, 30.0);
-        pnh_.param<double>("trajectory_scale", dTrajectoryScale_, 3.0);  // Faktor skala trajectory monocular
+        pnh_.param<double>("trajectory_scale", dTrajectoryScale_, 1.6);  // Faktor skala trajectory monocular rapat
 
         ROS_INFO("==========================================================");
         ROS_INFO("  ORB-SLAM3 ODOMETRY NODE: 6-DoF Tracker for RTAB-Map & AI");

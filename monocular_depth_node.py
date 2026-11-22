@@ -77,7 +77,7 @@ class MonocularDepthNode:
         self.latest_odom_time = rospy.Time(0)
         self.latest_odom_translation = None  # Track pergerakan kamera
         self._last_published_translation = None
-        self._min_movement_threshold = rospy.get_param("~min_movement", 0.03)  # Min 3cm gerakan sebelum publish depth baru
+        self._min_movement_threshold = rospy.get_param("~min_movement", 0.015)  # Min 1.5cm gerakan sebelum publish depth baru
         self.sparse_pts_world = None
         self.slam_scale = 1.0
         

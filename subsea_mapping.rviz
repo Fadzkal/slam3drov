@@ -25,13 +25,13 @@ Visualization Manager:
     # -----------------------------------------------------------------------
     # 1. Grid
     # -----------------------------------------------------------------------
-    - Alpha: 0.5
+    - Alpha: 0.3
       Cell Size: 1
       Class: rviz/Grid
-      Color: 200; 200; 200
+      Color: 215; 215; 215
       Enabled: true
       Line Style:
-        Line Width: 0.02
+        Line Width: 0.01
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
@@ -78,7 +78,7 @@ Visualization Manager:
       Value: false
 
     # -----------------------------------------------------------------------
-    # 2b. ORB-SLAM3 Live Features (Identik dengan Pangolin Viewport)
+    # 2b. ORB-SLAM3 Live Features (Wireframes dinonaktifkan agar visual 3D bersih)
     # -----------------------------------------------------------------------
     - Class: rviz/Marker
       Enabled: true
@@ -89,20 +89,20 @@ Visualization Manager:
       Value: true
 
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /orb_slam3/keyframe_markers
       Name: ORB-SLAM3 KeyFrames (Blue)
       Queue Size: 5
       Unreliable: false
-      Value: true
+      Value: false
 
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /orb_slam3/covisibility_graph
       Name: ORB-SLAM3 Covisibility Graph (Green)
       Queue Size: 5
       Unreliable: false
-      Value: true
+      Value: false
 
     - Alpha: 1.0
       Autocompute Intensity Bounds: true
@@ -114,19 +114,19 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0.0
-      Enabled: true
+      Enabled: false
       Name: ORB-SLAM3 Feature Points (Colored)
       Position Transformer: XYZ
       Queue Size: 5
       Selectable: true
-      Size (Pixels): 5
+      Size (Pixels): 3
       Size (m): 0.01
       Style: Points
       Topic: /orb_slam3/sparse_points
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: false
-      Value: true
+      Value: false
 
     # -----------------------------------------------------------------------
     # 3. TF Frames (Disabled by default to avoid visual clutter)
@@ -187,10 +187,10 @@ Visualization Manager:
       Axis: Z
       Channel Name: rgb
       Class: rtabmap_rviz_plugins/MapCloud
-      Cloud decimation: 4
-      Cloud max depth (m): 5.0
+      Cloud decimation: 2
+      Cloud max depth (m): 4.0
       Cloud min depth (m): 0.25
-      Cloud voxel size (m): 0.03
+      Cloud voxel size (m): 0.02
       Color: 255; 255; 255
       Color Transformer: RGB8
       Download graph: true
@@ -204,10 +204,10 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: MapCloud
-      Node filtering angle (degrees): 20
-      Node filtering radius (m): 0.04
+      Node filtering angle (degrees): 15
+      Node filtering radius (m): 0.02
       Position Transformer: XYZ
-      Size (Pixels): 2
+      Size (Pixels): 3
       Size (m): 0.015
       Style: Points
       Topic: /rtabmap/mapData
@@ -217,13 +217,13 @@ Visualization Manager:
       Value: true
 
     # -----------------------------------------------------------------------
-    # 6. Robot Trajectory (Jalur Hijau Terang ROV)
+    # 6. Robot Trajectory (Dinonaktifkan agar visual 3D bersih tanpa garis)
     # -----------------------------------------------------------------------
     - Alpha: 1.0
       Buffer Length: 10000
       Class: rviz/Path
       Color: 255; 230; 0
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.15
       Head Length: 0.1
       Length: 0.1
@@ -345,7 +345,7 @@ Visualization Manager:
 
   Enabled: true
   Global Options:
-    Background Color: 0; 0; 0
+    Background Color: 255; 255; 255
     Default Light: true
     Fixed Frame: odom
     Frame Rate: 30
