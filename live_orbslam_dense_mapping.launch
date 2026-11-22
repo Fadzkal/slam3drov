@@ -27,6 +27,7 @@
   <arg name="open_rviz"     default="true" />
   <arg name="point_step"    default="2" />
   <arg name="depth_scale"   default="2.2" />
+  <arg name="trajectory_scale" default="1.0" />
 
   <!-- 1. ORB-SLAM3 6-DoF Odometry Tracker Node -->
   <node pkg="subsea_3d_mapping" type="orb_slam3_odom_node" name="orb_slam3_odom" output="screen">
@@ -40,7 +41,7 @@
     <param name="publish_tf"      type="bool"   value="true" />
     <param name="use_pangolin"    type="bool"   value="$(arg use_pangolin)" />
     <param name="fps"             type="double" value="30.0" />
-    <param name="trajectory_scale" type="double" value="1.6" />
+    <param name="trajectory_scale" type="double" value="$(arg trajectory_scale)" />
   </node>
 
   <!-- 2. Static Transforms (Camera Frames) -->

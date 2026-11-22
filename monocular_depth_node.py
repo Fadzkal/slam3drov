@@ -27,7 +27,7 @@ import onnxruntime as ort
 import rospy
 from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo, Range
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 from cv_bridge import CvBridge
 import sensor_msgs.point_cloud2 as pc2
 
@@ -80,6 +80,8 @@ class MonocularDepthNode:
         self._min_movement_threshold = rospy.get_param("~min_movement", 0.015)  # Min 1.5cm gerakan sebelum publish depth baru
         self.sparse_pts_world = None
         self.slam_scale = 1.0
+        self._scale_change_max_rate = 0.15  # Maksimal perubahan skala 15% per update (cegah lompatan skala akibat map merge)
+        self._scale_freeze_frames = 0        # Counter penghentian sementara anchor saat map berpindah
         
         # Ping1D Sonar Metric Anchor State
         self.latest_ping_distance = None
@@ -106,7 +108,10 @@ class MonocularDepthNode:
             rospy.Subscriber("/camera/image_raw", Image, self.fallback_image_callback, queue_size=1, buff_size=2**24)
             
         rospy.Subscriber("/rtabmap/odom", Odometry, self.odom_callback, queue_size=5)
-        rospy.Subscriber("/orb_slam3/sparse_points", PointCloud2, self.sparse_pts_callback, queue_size=2)
+        # Prioritas gunakan /orb_slam3/active_points (hanya titik MapPoint yang live terlihat pada frame ini)
+        rospy.Subscriber("/orb_slam3/active_points", PointCloud2, self.sparse_pts_callback, queue_size=2)
+        rospy.Subscriber("/orb_slam3/sparse_points", PointCloud2, self.fallback_sparse_pts_callback, queue_size=2)
+        rospy.Subscriber("/orb_slam3/status", String, self.orb_status_callback, queue_size=5)
         rospy.Subscriber("/sonar/ping1d/distance", Float64, self.ping_dist_callback, queue_size=5)
         rospy.Subscriber("/sonar/ping1d/range", Range, self.ping_range_callback, queue_size=5)
         
@@ -123,8 +128,27 @@ class MonocularDepthNode:
             pts = list(pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True))
             if pts:
                 self.sparse_pts_world = np.array(pts, dtype=np.float32)
+                self._last_active_pts_time = rospy.Time.now()
         except Exception:
             pass
+
+    def fallback_sparse_pts_callback(self, msg):
+        # Hanya gunakan /orb_slam3/sparse_points jika /orb_slam3/active_points tidak ada
+        if hasattr(self, '_last_active_pts_time') and (rospy.Time.now() - self._last_active_pts_time).to_sec() < 1.0:
+            return
+        try:
+            pts = list(pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True))
+            if pts:
+                self.sparse_pts_world = np.array(pts, dtype=np.float32)
+        except Exception:
+            pass
+
+    def orb_status_callback(self, msg):
+        """Callback status ORB-SLAM3: Jika terjadi LOST->OK (map baru dibuat),
+        bekukan anchor skala selama beberapa frame agar tidak menerima lompatan skala besar."""
+        if msg.data == "LOST":
+            # Tandai bahwa tracking baru saja pulih dari kehilangan - mungkin peta baru
+            self._scale_freeze_frames = max(self._scale_freeze_frames, 20)  # Beku 20 frame berikutnya
 
     def fallback_image_callback(self, msg):
         if (rospy.Time.now() - self._last_enhanced_time).to_sec() > 1.0:
@@ -271,10 +295,20 @@ class MonocularDepthNode:
                             ratios = z_gt[valid_samples] / z_pred_samples[valid_samples]
                             med_ratio = float(np.median(ratios))
                             if 0.40 <= med_ratio <= 2.5:
-                                self.slam_scale = 0.88 * self.slam_scale + 0.12 * med_ratio
-                                depth_metric_resized = depth_metric_resized * self.slam_scale
-                                b_anchored = True
-                                rospy.loginfo_throttle(5.0, f"[Anchor ORB-SLAM3] Skala terkunci via {len(ratios)} MapPoints: s={self.slam_scale:.3f}")
+                                # Batasi laju perubahan skala maksimal ±15% per update
+                                # untuk mencegah lompatan skala besar saat Atlas merge peta
+                                if self._scale_freeze_frames > 0:
+                                    self._scale_freeze_frames -= 1
+                                else:
+                                    clamped_ratio = float(np.clip(
+                                        med_ratio,
+                                        self.slam_scale * (1.0 - self._scale_change_max_rate),
+                                        self.slam_scale * (1.0 + self._scale_change_max_rate)
+                                    ))
+                                    self.slam_scale = 0.88 * self.slam_scale + 0.12 * clamped_ratio
+                                    depth_metric_resized = depth_metric_resized * self.slam_scale
+                                    b_anchored = True
+                                    rospy.loginfo_throttle(5.0, f"[Anchor ORB-SLAM3] Skala terkunci via {len(ratios)} MapPoints: s={self.slam_scale:.3f} (clamped ratio={clamped_ratio:.3f})")
             except Exception:
                 pass
 

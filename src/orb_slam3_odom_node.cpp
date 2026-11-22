@@ -45,8 +45,11 @@ class OrbSlam3OdomNode
 {
 public:
     OrbSlam3OdomNode(ros::NodeHandle &nh, ros::NodeHandle &pnh)
-        : nh_(nh), pnh_(pnh), it_(nh), mbTrackingOk(false), dLastFrameTime_(0.0)
+        : nh_(nh), pnh_(pnh), it_(nh), mbTrackingOk(false), dLastFrameTime_(0.0),
+          nLastMapId_(-1), bHasValidPose_(false)
     {
+        T_anchor_ = Eigen::Matrix4f::Identity();
+        T_last_valid_cam_ = Eigen::Matrix4f::Identity();
         t0_slam_ = std::chrono::steady_clock::now();
         // 1. Baca Parameter ROS
         pnh_.param<string>("voc_file", strVocFile_, "/home/fadzkal_luthfi/slam_ws/ORB_SLAM3/Vocabulary/ORBvoc.txt");
@@ -116,6 +119,7 @@ public:
         kfMarkerPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/keyframe_markers", 5);
         covisGraphPub_ = nh_.advertise<visualization_msgs::Marker>("/orb_slam3/covisibility_graph", 5);
         sparsePointsPub_ = nh_.advertise<sensor_msgs::PointCloud2>("/orb_slam3/sparse_points", 5);
+        activePointsPub_ = nh_.advertise<sensor_msgs::PointCloud2>("/orb_slam3/active_points", 5);
         trackImgPub_ = it_.advertise("/orb_slam3/tracking_image", 2);
 
         // 5. Mode Operasi: Langsung Buka Kamera atau Subscribe ROS Topic
@@ -209,6 +213,21 @@ private:
         // 1. Eksekusi Pelacakan 6-DoF ORB-SLAM3
         Sophus::SE3f Tcw = mpSLAM->TrackMonocular(frame, tframe);
         int trackingState = mpSLAM->GetTrackingState();
+
+        // =====================================================================
+        // Seamless Multi-Map Chaining:
+        // Ketika tracking hilang dan Atlas membuat sub-map baru (misal saat panning ke kanan),
+        // sub-map baru dimulai dari origin Tcw = Identity (0,0,0) menghadap ke depan.
+        // Agar posisi TIDAK loncat kembali ke depan, kita rantai T_anchor_
+        // ke pose terakhir yang valid via mpSLAM->MapChanged().
+        // Posisi kamera tetap kontinu bergerak ke kanan!
+        // =====================================================================
+        bool bMapChanged = mpSLAM->MapChanged();
+        if (bMapChanged && bHasValidPose_)
+        {
+            T_anchor_ = T_last_valid_cam_;
+            ROS_WARN("[ATLAS-SEAMLESS] Peta Atlas berganti/diperbarui! Mengunci anchor di pose terakhir agar kamera tidak lompat ke depan.");
+        }
 
         // Status string
         std_msgs::String statusMsg;
@@ -312,6 +331,24 @@ private:
         {
             Sophus::SE3f Twc = Tcw.inverse();
 
+            Eigen::Matrix4f T_cur_cam = Eigen::Matrix4f::Identity();
+            T_cur_cam.block<3,3>(0,0) = Twc.rotationMatrix();
+            T_cur_cam.block<3,1>(0,3) = Twc.translation() * static_cast<float>(dTrajectoryScale_);
+
+            // Deteksi jika translasi internal mendadak reset dekat origin (< 0.10m) saat sebelumnya sudah bergerak (> 0.30m)
+            static Eigen::Vector3f last_raw_t = Eigen::Vector3f::Zero();
+            if (bHasValidPose_ && Twc.translation().norm() < 0.10f && last_raw_t.norm() > 0.30f)
+            {
+                T_anchor_ = T_last_valid_cam_;
+                ROS_WARN("[ATLAS-SEAMLESS] Reset pose terdeteksi (raw t < 0.10m)! Mengunci anchor agar lintasan tetap tersambung.");
+            }
+            last_raw_t = Twc.translation();
+
+            // Rantai mulus dengan anchor peta sebelumnya:
+            Eigen::Matrix4f T_world_cam = T_anchor_ * T_cur_cam;
+            T_last_valid_cam_ = T_world_cam;
+            bHasValidPose_ = true;
+
             // Transformasi Orientasi & Translasi:
             // Petakan dari sistem optik ORB-SLAM3 (X=kanan, Y=bawah, Z=maju)
             // ke sistem standar ROS odom (X=maju mendatar, Y=kiri mendatar, Z=atas vertikal)
@@ -321,15 +358,8 @@ private:
                        -1.0f,  0.0f,  0.0f,
                         0.0f, -1.0f,  0.0f;
 
-            Eigen::Vector3f t_odom = R_align * Twc.translation();
-            
-            // Scale up trajectory monocular agar cocok dengan skala depth MiDaS
-            // Monocular SLAM menghasilkan translasi dalam skala arbitrary yang sangat kecil,
-            // sementara depth map memprediksi jarak 0.5-3.0m. Tanpa scaling, point cloud
-            // dari frame-frame berurutan akan bertumpuk karena kamera "belum bergerak cukup".
-            t_odom *= static_cast<float>(dTrajectoryScale_);
-            
-            Eigen::Matrix3f R_odom = R_align * Twc.rotationMatrix();
+            Eigen::Vector3f t_odom = R_align * T_world_cam.block<3,1>(0,3);
+            Eigen::Matrix3f R_odom = R_align * T_world_cam.block<3,3>(0,0);
             Eigen::Quaternionf q_odom(R_odom);
 
             // Odometry Message
@@ -581,6 +611,7 @@ private:
                    -1.0f,  0.0f,  0.0f,
                     0.0f, -1.0f,  0.0f;
 
+        std::vector<Eigen::Vector3f> vActivePoints;
         for (size_t i = 0; i < vpTrackedMPs.size(); ++i)
         {
             ORB_SLAM3::MapPoint* pMP = vpTrackedMPs[i];
@@ -588,19 +619,52 @@ private:
             try {
                 if (pMP->isBad()) continue;
 
-                Eigen::Vector3f pos = R_align * pMP->GetWorldPos();
+                // Transformasikan titik ke world odom frame (memperhitungkan T_anchor_ jika terjadi multi-map)
+                Eigen::Vector3f pt_raw = pMP->GetWorldPos() * static_cast<float>(dTrajectoryScale_);
+                Eigen::Vector4f pt_h(pt_raw.x(), pt_raw.y(), pt_raw.z(), 1.0f);
+                Eigen::Vector4f pt_w = T_anchor_ * pt_h;
+                Eigen::Vector3f pos = R_align * pt_w.head<3>();
+
                 if (!std::isfinite(pos.x()) || !std::isfinite(pos.y()) || !std::isfinite(pos.z()))
                     continue;
+
+                vActivePoints.push_back(pos);
 
                 uint8_t r = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorR * 255.0f)));
                 uint8_t g = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorG * 255.0f)));
                 uint8_t b = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, pMP->mColorB * 255.0f)));
-                if (r == 0 && g == 0 && b == 0) { r = 255; g = 50; b = 50; }
+                if (r == 0 && g == 0 && b == 0) { r = 0; g = 255; b = 100; }
 
                 mapStoredPoints_[pMP->mnId] = {pos.x(), pos.y(), pos.z(), r, g, b};
             } catch (...) {
                 continue;
             }
+        }
+
+        // Publikasikan Active Points (hanya titik yang terlihat aktif pada frame ini untuk Depth AI Anchor)
+        if (!vActivePoints.empty())
+        {
+            sensor_msgs::PointCloud2 activeMsg;
+            activeMsg.header.stamp = stamp;
+            activeMsg.header.frame_id = strOdomFrame_;
+            activeMsg.height = 1;
+            activeMsg.width = vActivePoints.size();
+            activeMsg.is_dense = false;
+
+            sensor_msgs::PointCloud2Modifier mod(activeMsg);
+            mod.setPointCloud2FieldsByString(1, "xyz");
+            mod.resize(vActivePoints.size());
+
+            sensor_msgs::PointCloud2Iterator<float> it_x(activeMsg, "x");
+            sensor_msgs::PointCloud2Iterator<float> it_y(activeMsg, "y");
+            sensor_msgs::PointCloud2Iterator<float> it_z(activeMsg, "z");
+
+            for (const auto &p : vActivePoints)
+            {
+                *it_x = p.x(); *it_y = p.y(); *it_z = p.z();
+                ++it_x; ++it_y; ++it_z;
+            }
+            activePointsPub_.publish(activeMsg);
         }
 
         // Publikasikan seluruh titik yang tersimpan ke RViz (Points Tersimpan Permanen)
@@ -837,6 +901,13 @@ private:
     float imageScale_;
     bool mbTrackingOk;
     double dLastFrameTime_;
+
+    // State untuk deteksi pergantian peta Atlas ORB-SLAM3 & rantai mulus
+    int nLastMapId_;
+    Eigen::Matrix4f T_anchor_;
+    Eigen::Matrix4f T_last_valid_cam_;
+    bool bHasValidPose_;
+    ros::Publisher activePointsPub_;
 
     string strVocFile_;
     string strSettingsFile_;

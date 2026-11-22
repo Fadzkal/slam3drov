@@ -114,19 +114,19 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0.0
-      Enabled: false
+      Enabled: true
       Name: ORB-SLAM3 Feature Points (Colored)
       Position Transformer: XYZ
       Queue Size: 5
       Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.01
+      Size (Pixels): 4
+      Size (m): 0.015
       Style: Points
       Topic: /orb_slam3/sparse_points
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: false
-      Value: false
+      Value: true
 
     # -----------------------------------------------------------------------
     # 3. TF Frames (Disabled by default to avoid visual clutter)

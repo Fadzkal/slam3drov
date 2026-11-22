@@ -49,11 +49,11 @@ ThDepth: 40.0
 #--------------------------------------------------------------------------------------------
 # ORB Extractor Parameters (Sensitivitas Tinggi untuk Bawah Air & Objek Kontainer)
 #--------------------------------------------------------------------------------------------
-ORBextractor.nFeatures: 2500
+ORBextractor.nFeatures: 3000
 ORBextractor.scaleFactor: 1.2
 ORBextractor.nLevels: 8
-ORBextractor.iniThFAST: 12
-ORBextractor.minThFAST: 4
+ORBextractor.iniThFAST: 10
+ORBextractor.minThFAST: 3
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters (Pangolin 3D OpenGL)
