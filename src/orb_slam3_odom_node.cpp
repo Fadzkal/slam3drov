@@ -267,6 +267,14 @@ private:
             }
         }
 
+        // Proteksi kestabilan pelacakan:
+        // Jika inlier matches < 15, pelacakan ORB-SLAM3 tidak stabil dan rawan rotasi liar/drift.
+        // Tahan pembaruan pose ke RTAB-Map agar tidak menyisipkan frame rusak/berantakan.
+        if (numMatches < 15)
+        {
+            mbTrackingOk = false;
+        }
+
         // HUD Banner teks
         std::string banner;
         cv::Scalar bannerColor;
@@ -274,6 +282,11 @@ private:
         {
             banner = "SLAM MODE (OK) | KFs: " + std::to_string(vKeyFramePoses_.size()) + " | MPs: " + std::to_string(mapStoredPoints_.size()) + " | Matches: " + std::to_string(numMatches);
             bannerColor = cv::Scalar(0, 255, 0);
+        }
+        else if (trackingState == 2 && numMatches < 15)
+        {
+            banner = "LOW MATCHES (" + std::to_string(numMatches) + "/15) - PAUSED TO PREVENT DRIFT";
+            bannerColor = cv::Scalar(0, 165, 255);
         }
         else if (trackingState == 1)
         {

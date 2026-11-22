@@ -26,7 +26,7 @@
   <arg name="use_pangolin"  default="true" />
   <arg name="open_rviz"     default="true" />
   <arg name="point_step"    default="2" />
-  <arg name="depth_scale"   default="3.5" />
+  <arg name="depth_scale"   default="2.2" />
 
   <!-- 1. ORB-SLAM3 6-DoF Odometry Tracker Node -->
   <node pkg="subsea_3d_mapping" type="orb_slam3_odom_node" name="orb_slam3_odom" output="screen">
@@ -54,7 +54,7 @@
   <node pkg="subsea_3d_mapping" type="monocular_depth_node.py" name="monocular_depth" output="screen">
     <param name="model_path"   type="string" value="$(find subsea_3d_mapping)/models/model-small.onnx" />
     <param name="depth_scale"      type="double" value="$(arg depth_scale)" />
-    <param name="max_depth_range"  type="double" value="3.2" />
+    <param name="max_depth_range"  type="double" value="1.8" />
     <param name="point_step"       type="int"    value="$(arg point_step)" />
     <param name="min_movement"     type="double" value="0.015" />
     <param name="image_topic"      type="string" value="/camera/image_raw" />
@@ -84,19 +84,19 @@
 
       <!-- Pengaturan Pembuatan Peta 3D Padat (Murni 3D Volumetrik, Rapat & Menyatu) -->
       <param name="RGBD/Enabled"                type="string" value="true"/>
-      <param name="Rtabmap/DetectionRate"       type="string" value="1.5"/>
-      <param name="RGBD/LinearUpdate"           type="string" value="0.03"/> <!-- Rapat 3 cm untuk fusi mulus -->
-      <param name="RGBD/AngularUpdate"          type="string" value="0.06"/> <!-- Update putar halus ~3.5 derajat -->
+      <param name="Rtabmap/DetectionRate"       type="string" value="1.0"/>
+      <param name="RGBD/LinearUpdate"           type="string" value="0.08"/> <!-- Filter translasi 8 cm mencegah keyframe menumpuk -->
+      <param name="RGBD/AngularUpdate"          type="string" value="0.18"/> <!-- Filter rotasi ~10.3 derajat mencegah cabbage swirl -->
       <param name="Grid/FromDepth"              type="string" value="false"/> <!-- Matikan proyeksi grid 2D -->
       <param name="Grid/Sensor"                 type="string" value="0"/>     <!-- 0 = Nonaktifkan 2D Ground Grid -->
-      <param name="Grid/RangeMax"               type="string" value="3.2"/>
-      <param name="Grid/RangeMin"               type="string" value="0.25"/>
-      <param name="Grid/DepthDecimation"        type="int"    value="2"/>    <!-- Kerapatan tinggi (decimation 2) -->
-      <param name="Grid/CellSize"               type="string" value="0.02"/> <!-- Resolusi Voxel 2 cm -->
-      <param name="Grid/VoxelSize"              type="double" value="0.02"/>
-      <param name="cloud_voxel_size"            type="double" value="0.02"/> <!-- Voxel filter cloud 2 cm -->
-      <param name="Grid/NoiseFilteringRadius"   type="string" value="0.06"/> <!-- Filter pembersih noise -->
-      <param name="Grid/NoiseFilteringMinNeighbors" type="string" value="5"/>
+      <param name="Grid/RangeMax"               type="string" value="1.8"/>  <!-- Pangkas air keruh latar belakang >1.8m -->
+      <param name="Grid/RangeMin"               type="string" value="0.30"/>
+      <param name="Grid/DepthDecimation"        type="int"    value="2"/>
+      <param name="Grid/CellSize"               type="string" value="0.03"/> <!-- Resolusi Voxel 3 cm -->
+      <param name="Grid/VoxelSize"              type="double" value="0.03"/>
+      <param name="cloud_voxel_size"            type="double" value="0.03"/>
+      <param name="Grid/NoiseFilteringRadius"   type="string" value="0.08"/> <!-- Filter pembersih hamburan partikel air -->
+      <param name="Grid/NoiseFilteringMinNeighbors" type="string" value="6"/>
       <param name="Grid/RayTracing"             type="string" value="false"/>
       <param name="Mem/IncrementalMemory"       type="string" value="true"/>
       <param name="RGBD/CreateOccupancyGrid"    type="string" value="false"/> <!-- Hilangkan bidang lantai 2D putih dan abu-abu -->

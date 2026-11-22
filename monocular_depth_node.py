@@ -60,8 +60,8 @@ class MonocularDepthNode:
         self.input_name = self.session.get_inputs()[0].name
         
         self.bridge = CvBridge()
-        self.depth_scale = rospy.get_param("~depth_scale", 3.8)
-        self.max_depth_range = rospy.get_param("~max_depth_range", 3.5)
+        self.depth_scale = rospy.get_param("~depth_scale", 2.2)
+        self.max_depth_range = rospy.get_param("~max_depth_range", 1.8)
         self.step = rospy.get_param("~point_step", 3)
         self.depth_divisor = rospy.get_param("~depth_divisor", 1.0)  # Skala pembagi depth agar match trajectory
         self._prev_depth = None
@@ -197,7 +197,7 @@ class MonocularDepthNode:
         disp_norm = (depth_clamped - self._ema_p_low) / denom
         
         # 3. Formulasi Pemetaan Hiperbolik (Disparity -> Metric Depth)
-        z_near = 0.45
+        z_near = 0.35
         z_far = float(self.depth_scale)
         alpha = (1.0 / z_near) - (1.0 / z_far)
         beta = 1.0 / z_far
@@ -289,29 +289,27 @@ class MonocularDepthNode:
                 scale_correction = np.clip(scale_correction, 0.35, 2.8)
                 depth_metric_resized = depth_metric_resized * scale_correction
 
-        # 7. Koreksi Anti-Kubah/Anti-Barrel (Spherical-to-Planar Ray Cosine):
-        # MiDaS memprediksi jarak radial Euclidean sepanjang sinar kamera R = sqrt(X^2 + Y^2 + Z^2).
-        # Tanpa koreksi cos(theta), titik di sudut gambar terdorong menjauh sebesar 1/cos(theta) (+26%),
-        # menyebabkan koridor/dinding datar melengkung cembung membentuk kubah.
-        u_grid_full, v_grid_full = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
-        xn = (u_grid_full - cx) / fx
-        yn = (v_grid_full - cy) / fy
-        ray_cos = 1.0 / np.sqrt(1.0 + xn**2 + yn**2)
-        depth_metric_resized = depth_metric_resized * ray_cos
+        # 7. Koreksi Planar Depth:
+        # MiDaS menghasilkan orthogonal planar depth Z (jarak tegak lurus bidang optik kamera).
+        # Mengalikan dengan ray_cos justru mendistorsi bidang datar menjadi mangkuk cekung (bowl distortion).
+        # Oleh karena itu koreksi ray_cos dinonaktifkan agar rekonstruksi dasar laut dan struktur fisik tetap rata.
 
         # 8. Perataan Temporal EMA antar Frame
         if self._prev_depth is not None and self._prev_depth.shape == depth_metric_resized.shape:
             depth_metric_resized = 0.65 * self._prev_depth + 0.35 * depth_metric_resized
         self._prev_depth = depth_metric_resized.copy()
 
-        # 9. Inner Boundary Masking (6% margin) & Distance Cutoff
-        by = max(2, int(h * 0.06))
-        bx = max(2, int(w * 0.06))
+        # 9. Inner Boundary Masking (10% margin) & Distance Cutoff
+        # Memotong batas tepi frame sebesar 10% untuk mengeliminasi distorsi lensa kubah dan air keruh di pinggir
+        by = max(2, int(h * 0.10))
+        bx = max(2, int(w * 0.10))
         depth_metric_resized[:by, :] = np.nan
         depth_metric_resized[-by:, :] = np.nan
         depth_metric_resized[:, :bx] = np.nan
         depth_metric_resized[:, -bx:] = np.nan
 
+        # Pangkas kedalaman di luar rentang inspeksi fisik (0.28m - 1.80m)
+        # Air keruh di latar belakang (>1.8m) dibuang agar tidak membentuk kelopak kipas
         depth_metric_resized[depth_metric_resized > float(self.max_depth_range)] = np.nan
         depth_metric_resized[depth_metric_resized < 0.28] = np.nan
         
