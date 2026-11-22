@@ -103,7 +103,10 @@
     </node>
   </group>
 
-  <!-- 5. RViz 3D Visualizer -->
+  <!-- 5. Trajectory Tracker Node (/robot_path & /rov/model_marker) -->
+  <node pkg="subsea_3d_mapping" type="rov_trajectory_node.py" name="rov_trajectory_node" output="screen" />
+
+  <!-- 6. RViz 3D Visualizer -->
   <group if="$(arg open_rviz)">
     <node pkg="rviz" type="rviz" name="rviz" 
           args="-d $(find subsea_3d_mapping)/subsea_mapping.rviz" output="screen" />
